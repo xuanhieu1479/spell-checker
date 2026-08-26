@@ -46,8 +46,7 @@
     pointer-events: auto;
     cursor: pointer;
     position: relative;
-    color: transparent;
-    background: transparent;
+    text-shadow: none;
 }
 
 .spellcheck-overlay .spellcheck-error {
