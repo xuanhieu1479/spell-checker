@@ -145,7 +145,7 @@
 /* Results panel */
 .spellcheck-results-panel {
     position: fixed;
-    bottom: 60px;
+    bottom: 200px;
     right: 20px;
     width: 320px;
     max-height: 400px;

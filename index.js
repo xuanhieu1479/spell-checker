@@ -397,7 +397,6 @@ async function runSpellCheck() {
     if (!text.trim()) {
         clearOverlay();
         hideResultsPanel();
-        toastr.info("Nothing to check");
         return;
     }
 
@@ -422,15 +421,8 @@ async function runSpellCheck() {
         });
 
         if (results.length === 0) {
-            toastr.success("No spelling issues found!");
             hideResultsPanel();
         } else {
-            const ambiguous = results.filter(r => r.ambiguous).length;
-            const needsAI = results.filter(r => r.needsAI).length;
-            let msg = `Found ${results.length} issue${results.length !== 1 ? "s" : ""}`;
-            if (ambiguous > 0) msg += ` (${ambiguous} need your choice)`;
-            if (needsAI > 0) msg += ` (${needsAI} need AI)`;
-            toastr.warning(msg);
             showResultsPanel();
         }
 
