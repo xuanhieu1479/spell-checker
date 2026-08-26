@@ -7,10 +7,11 @@ import { applySingleCorrection } from "./postprocess.js";
 const extensionName = "spell-checker";
 const extensionFolderPath = `scripts/extensions/third-party/${extensionName}`;
 
+const OPENROUTER_API = "https://openrouter.ai/api/v1";
+
 const defaultSettings = {
     modifier: "ctrl",
     key: " ",
-    apiEndpoint: "https://openrouter.ai/api/v1",
     apiKey: "",
     modelName: "google/gemini-2.0-flash-lite-001",
     customPrompt: "",
@@ -19,6 +20,49 @@ const defaultSettings = {
 
 let currentResults = [];
 let isChecking = false;
+let cachedModels = null;
+
+async function fetchModels() {
+    if (cachedModels) return cachedModels;
+
+    const response = await fetch(`${OPENROUTER_API}/models`);
+    if (!response.ok) throw new Error(`Failed to fetch models: ${response.status}`);
+
+    const data = await response.json();
+    const models = data.data || [];
+
+    const grouped = {};
+    for (const model of models) {
+        const [provider] = model.id.split("/");
+        if (!grouped[provider]) grouped[provider] = [];
+        grouped[provider].push({
+            id: model.id,
+            name: model.name || model.id,
+        });
+    }
+
+    for (const provider of Object.keys(grouped)) {
+        grouped[provider].sort((a, b) => a.name.localeCompare(b.name));
+    }
+
+    cachedModels = grouped;
+    return grouped;
+}
+
+function populateModelDropdown(grouped, selectedModel) {
+    const $select = $("#spellcheck_model_name");
+    $select.empty();
+
+    const providers = Object.keys(grouped).sort();
+    for (const provider of providers) {
+        const $optgroup = $(`<optgroup label="${provider}"></optgroup>`);
+        for (const model of grouped[provider]) {
+            const selected = model.id === selectedModel ? "selected" : "";
+            $optgroup.append(`<option value="${model.id}" ${selected}>${model.name}</option>`);
+        }
+        $select.append($optgroup);
+    }
+}
 
 function settings() {
     extension_settings[extensionName] = extension_settings[extensionName] || {};
@@ -445,13 +489,29 @@ jQuery(async () => {
     const s = settings();
     $("#spellcheck_modifier").val(s.modifier);
     $("#spellcheck_key").val(s.key);
-    $("#spellcheck_api_endpoint").val(s.apiEndpoint);
     $("#spellcheck_api_key").val(s.apiKey);
-    $("#spellcheck_model_name").val(s.modelName);
     $("#spellcheck_custom_prompt").val(s.customPrompt);
     $("#spellcheck_custom_dict").val(
         Array.isArray(s.customDictionary) ? s.customDictionary.join("\n") : s.customDictionary
     );
+
+    async function loadModels() {
+        const $btn = $("#spellcheck_refresh_models");
+        const $select = $("#spellcheck_model_name");
+        $btn.prop("disabled", true).find("i").addClass("fa-spin");
+
+        try {
+            const grouped = await fetchModels();
+            populateModelDropdown(grouped, settings().modelName);
+        } catch (error) {
+            console.error("[Spell Checker] Failed to fetch models:", error);
+            $select.html('<option value="">Failed to load models</option>');
+        } finally {
+            $btn.prop("disabled", false).find("i").removeClass("fa-spin");
+        }
+    }
+
+    loadModels();
 
     $("#spellcheck_modifier").on("change", () => {
         settings().modifier = $("#spellcheck_modifier").val();
@@ -463,19 +523,19 @@ jQuery(async () => {
         saveSettingsDebounced();
     });
 
-    $("#spellcheck_api_endpoint").on("input", () => {
-        settings().apiEndpoint = $("#spellcheck_api_endpoint").val();
-        saveSettingsDebounced();
-    });
-
     $("#spellcheck_api_key").on("input", () => {
         settings().apiKey = $("#spellcheck_api_key").val();
         saveSettingsDebounced();
     });
 
-    $("#spellcheck_model_name").on("input", () => {
+    $("#spellcheck_model_name").on("change", () => {
         settings().modelName = $("#spellcheck_model_name").val();
         saveSettingsDebounced();
+    });
+
+    $("#spellcheck_refresh_models").on("click", () => {
+        cachedModels = null;
+        loadModels();
     });
 
     $("#spellcheck_custom_prompt").on("input", () => {

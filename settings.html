@@ -91,26 +91,25 @@
 
             <div class="spellcheck-block">
                 <b>AI Fallback Settings</b>
-                <small>Used when local dictionary cannot find a match (edit distance > 2)</small>
-            </div>
-
-            <div class="spellcheck-block">
-                <label for="spellcheck_api_endpoint">API Endpoint:</label>
-                <input id="spellcheck_api_endpoint" type="text" class="text_pole"
-                    placeholder="https://openrouter.ai/api/v1" value="https://openrouter.ai/api/v1" />
-                <small>OpenRouter, OpenAI, or any OpenAI-compatible endpoint</small>
+                <small>Used when local dictionary cannot find a match (edit distance > 2). Uses OpenRouter API.</small>
             </div>
 
             <div class="spellcheck-block">
                 <label for="spellcheck_api_key">API Key:</label>
                 <input id="spellcheck_api_key" type="password" class="text_pole" placeholder="sk-or-..." />
+                <small>Get your key at <a href="https://openrouter.ai/keys" target="_blank">openrouter.ai/keys</a></small>
             </div>
 
             <div class="spellcheck-block">
-                <label for="spellcheck_model_name">Model Name:</label>
-                <input id="spellcheck_model_name" type="text" class="text_pole"
-                    placeholder="google/gemini-2.0-flash-lite-001" value="google/gemini-2.0-flash-lite-001" />
-                <small>For OpenRouter, use format: provider/model-name</small>
+                <label for="spellcheck_model_name">Model:</label>
+                <div class="flex-container">
+                    <select id="spellcheck_model_name" class="text_pole" style="flex: 1;">
+                        <option value="">-- Click Refresh to load models --</option>
+                    </select>
+                    <button id="spellcheck_refresh_models" class="menu_button" type="button" title="Refresh model list">
+                        <i class="fa-solid fa-refresh"></i>
+                    </button>
+                </div>
             </div>
 
             <hr class="sysHR" />
