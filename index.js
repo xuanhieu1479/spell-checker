@@ -678,10 +678,15 @@ jQuery(async () => {
 
     // Esc to close panel from anywhere
     $(document).on("keydown", (e) => {
-        if (e.key === "Escape" && $("#spellcheck_results_panel").is(":visible")) {
-            e.preventDefault();
-            clearResults();
-            hideResultsPanel();
+        if (e.key === "Escape") {
+            if ($("#spellcheck_results_panel").is(":visible")) {
+                e.preventDefault();
+                clearResults();
+                hideResultsPanel();
+            } else if ($(".spellcheck-undo-tooltip").length) {
+                e.preventDefault();
+                $(".spellcheck-undo-tooltip").remove();
+            }
         }
     });
 
