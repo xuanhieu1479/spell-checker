@@ -40,13 +40,13 @@
     color: transparent;
     z-index: 1;
     background: transparent;
+    text-shadow: none;
 }
 
 .spellcheck-overlay .spellcheck-word {
     pointer-events: auto;
     cursor: pointer;
     position: relative;
-    text-shadow: none;
 }
 
 .spellcheck-overlay .spellcheck-error {
