@@ -59,12 +59,14 @@
     text-decoration: underline wavy #f0ad4e;
     text-decoration-skip-ink: none;
     text-underline-offset: 4px;
+    text-shadow: none;
 }
 
 .spellcheck-overlay .spellcheck-ai-needed {
     text-decoration: underline dotted #ff6b6b;
     text-decoration-skip-ink: none;
     text-underline-offset: 4px;
+    text-shadow: none;
 }
 
 /* Tooltip for suggestions */
