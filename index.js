@@ -488,7 +488,8 @@ function fixAll() {
 function handleKeydown(e) {
     const s = settings();
     const modifier = s.modifier || "ctrl";
-    const key = (s.key || "Space").toLowerCase();
+    const rawKey = s.key || " ";
+    const key = rawKey === " " ? "space" : rawKey.toLowerCase();
 
     let modifierPressed = false;
     switch (modifier) {
@@ -497,7 +498,7 @@ function handleKeydown(e) {
         case "shift": modifierPressed = e.shiftKey; break;
     }
 
-    const pressedKey = e.key.toLowerCase() === " " ? "space" : e.key.toLowerCase();
+    const pressedKey = e.key === " " ? "space" : e.key.toLowerCase();
 
     if (modifierPressed && pressedKey === key) {
         e.preventDefault();
