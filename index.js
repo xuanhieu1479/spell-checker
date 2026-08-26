@@ -22,6 +22,7 @@ let currentResults = [];
 let isChecking = false;
 let allModels = [];
 let fixAllAbortController = null;
+let originalTextBeforeSpellCheck = null;
 
 function trimProviderPrefix(name, provider) {
     const prefixes = [
@@ -235,7 +236,7 @@ function showUndoTooltip(originalText) {
 
     $undo.css({
         position: "fixed",
-        top: (rect.top - 35) + "px",
+        top: (rect.top - 70) + "px",
         right: "200px",
     });
 
@@ -345,9 +346,6 @@ function updateResultsPanel() {
 function showResultsPanel() {
     updateResultsPanel();
     $("#spellcheck_results_panel").show();
-
-    // TODO: Remove this - testing undo tooltip UI (shows after panel opens for testing)
-    setTimeout(() => showUndoTooltip($("#send_textarea").val()), 100);
 }
 
 function hideResultsPanel() {
@@ -357,6 +355,15 @@ function hideResultsPanel() {
         fixAllAbortController = null;
     }
     $("#spellcheck_results_panel").hide();
+
+    // Show undo if text was changed during spell check session
+    if (originalTextBeforeSpellCheck !== null) {
+        const currentText = $("#send_textarea").val();
+        if (currentText !== originalTextBeforeSpellCheck) {
+            showUndoTooltip(originalTextBeforeSpellCheck);
+        }
+        originalTextBeforeSpellCheck = null;
+    }
 }
 
 function clearResults() {
@@ -374,6 +381,9 @@ async function runSpellCheck() {
         hideResultsPanel();
         return;
     }
+
+    // Store original text for undo
+    originalTextBeforeSpellCheck = text;
 
     isChecking = true;
     $("#spellcheck_status").html('Checking... <span class="spellcheck-loading"></span>');
@@ -413,7 +423,11 @@ async function runSpellCheck() {
 
             showResultsPanel();
         } else {
-            hideResultsPanel();
+            // No panel needed - if we auto-fixed, show undo
+            if (fixedCount > 0) {
+                showUndoTooltip(originalTextBeforeSpellCheck);
+            }
+            originalTextBeforeSpellCheck = null;
         }
         let statusMsg = "";
         if (fixedCount > 0) statusMsg += `Fixed ${fixedCount}`;
@@ -494,15 +508,11 @@ async function fixAll() {
             return;
         }
 
-        // Store original for undo, then replace
-        const originalText = text;
+        // Replace text - hideResultsPanel will show undo using originalTextBeforeSpellCheck
         $textarea.val(correctedText);
         clearResults();
         hideResultsPanel();
         $("#spellcheck_status").text("Fixed by AI");
-
-        // Show undo tooltip
-        showUndoTooltip(originalText);
 
     } catch (error) {
         if (error.name === "AbortError") {
