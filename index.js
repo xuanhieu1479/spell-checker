@@ -461,20 +461,23 @@ async function fixAll() {
         }
 
         // Validate response is actual corrected text, not a refusal
+        // Only flag as refusal if it contains meta-language about the request itself
         const refusalPatterns = [
-            /^i('m| am| cannot| can't| won't| will not| refuse)/i,
-            /^sorry/i,
-            /^i apologize/i,
-            /^unfortunately/i,
+            /^i('m| am)? (sorry|unable|cannot|can't|won't|not able)/i,
+            /^(sorry|unfortunately|apologies),? (but )?(i |this |the |your )/i,
             /^as an ai/i,
-            /^i'm not able/i,
-            /^this (text|content|request)/i,
+            /cannot (process|correct|fix|help|assist|comply)/i,
+            /this (text|content|request|message) (is|contains|appears|seems)/i,
+            /^i (cannot|can't|won't|refuse to) (process|correct|fix|help)/i,
         ];
 
-        const looksLikeRefusal = refusalPatterns.some(p => p.test(correctedText));
+        // Only flag if the pattern matches AND original didn't have similar content
+        const looksLikeRefusal = refusalPatterns.some(p => p.test(correctedText)) &&
+            !refusalPatterns.some(p => p.test(text.trim()));
+
         const inputWordCount = text.split(/\s+/).length;
         const outputWordCount = correctedText.split(/\s+/).length;
-        const tooShort = outputWordCount < inputWordCount * 0.3;
+        const tooShort = inputWordCount > 10 && outputWordCount < inputWordCount * 0.3;
 
         if (looksLikeRefusal || tooShort) {
             throw new Error("AI returned a refusal or invalid response. Your text was not changed.");
