@@ -375,6 +375,9 @@ function clearResults() {
 async function runSpellCheck() {
     if (isChecking) return;
 
+    // Remove any existing undo tooltip
+    $(".spellcheck-undo-tooltip").remove();
+
     const $textarea = $("#send_textarea");
     const text = $textarea.val();
 
@@ -569,13 +572,18 @@ function handleKeydown(e) {
         const isDoubleTap = (now - lastShortcutTime) < DOUBLE_TAP_THRESHOLD;
         lastShortcutTime = now;
 
-        if (panelOpen) {
-            // Panel open: shortcut = Fix All
-            fixAll();
-        } else if (isDoubleTap) {
+        if (isDoubleTap) {
             // Double-tap: send directly to AI
+            // Close panel if first tap opened it, remove any undo tooltip
+            if (panelOpen) {
+                $("#spellcheck_results_panel").hide();
+            }
+            $(".spellcheck-undo-tooltip").remove();
             originalTextBeforeSpellCheck = $("#send_textarea").val();
             fixAll(true); // skip panel check
+        } else if (panelOpen) {
+            // Panel open: shortcut = Fix All
+            fixAll();
         } else {
             // Normal: run spell check
             runSpellCheck();
