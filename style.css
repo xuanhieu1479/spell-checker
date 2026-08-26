@@ -46,6 +46,8 @@
     pointer-events: auto;
     cursor: pointer;
     position: relative;
+    color: transparent;
+    background: transparent;
 }
 
 .spellcheck-overlay .spellcheck-error {
@@ -145,7 +147,7 @@
 /* Results panel */
 .spellcheck-results-panel {
     position: fixed;
-    bottom: 200px;
+    bottom: 150px;
     right: 20px;
     width: 320px;
     max-height: 400px;
