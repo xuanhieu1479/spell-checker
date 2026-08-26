@@ -431,6 +431,9 @@ async function runSpellCheck() {
             // No panel needed - if we auto-fixed, show undo
             if (fixedCount > 0) {
                 showUndoTooltip(originalTextBeforeSpellCheck);
+            } else {
+                // Nothing to fix at all
+                toastr.success("No spelling errors found");
             }
             originalTextBeforeSpellCheck = null;
         }
