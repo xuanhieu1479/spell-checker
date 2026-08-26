@@ -23,6 +23,8 @@ let isChecking = false;
 let allModels = [];
 let fixAllAbortController = null;
 let originalTextBeforeSpellCheck = null;
+let lastShortcutTime = 0;
+const DOUBLE_TAP_THRESHOLD = 400; // ms
 
 function trimProviderPrefix(name, provider) {
     const prefixes = [
@@ -236,8 +238,8 @@ function showUndoTooltip(originalText) {
 
     $undo.css({
         position: "fixed",
-        top: (rect.top - 70) + "px",
-        right: "200px",
+        top: (rect.top - 50) + "px",
+        right: "150px",
     });
 
     $undo.on("click", () => {
@@ -443,7 +445,7 @@ async function runSpellCheck() {
     }
 }
 
-async function fixAll() {
+async function fixAll(skipPanelCheck = false) {
     const $textarea = $("#send_textarea");
     const text = $textarea.val();
 
@@ -457,10 +459,14 @@ async function fixAll() {
         return;
     }
 
-    // Show spinner in panel header
-    const $count = $("#spellcheck_results_count");
-    $count.html('Fixing... <span class="spellcheck-loading"></span>');
-    $("#spellcheck_fix_all").css("pointer-events", "none").css("opacity", "0.5");
+    const panelVisible = $("#spellcheck_results_panel").is(":visible");
+
+    // Show spinner in panel header if panel is open
+    if (panelVisible) {
+        const $count = $("#spellcheck_results_count");
+        $count.html('Fixing... <span class="spellcheck-loading"></span>');
+        $("#spellcheck_fix_all").css("pointer-events", "none").css("opacity", "0.5");
+    }
 
     // Create abort controller
     fixAllAbortController = new AbortController();
@@ -486,8 +492,8 @@ async function fixAll() {
             signal: fixAllAbortController.signal,
         });
 
-        // Check if panel is still open before processing
-        if (!$("#spellcheck_results_panel").is(":visible")) {
+        // Check if panel was closed while waiting (only for panel-triggered calls)
+        if (!skipPanelCheck && !$("#spellcheck_results_panel").is(":visible")) {
             return;
         }
 
@@ -503,25 +509,36 @@ async function fixAll() {
             throw new Error("No response from AI");
         }
 
-        // Check again if panel is still open
-        if (!$("#spellcheck_results_panel").is(":visible")) {
+        // Check again if panel was closed (only for panel-triggered calls)
+        if (!skipPanelCheck && !$("#spellcheck_results_panel").is(":visible")) {
             return;
         }
 
-        // Replace text - hideResultsPanel will show undo using originalTextBeforeSpellCheck
+        // Replace text and show undo
         $textarea.val(correctedText);
         clearResults();
-        hideResultsPanel();
+
+        if (panelVisible) {
+            hideResultsPanel();
+        } else {
+            // Direct call (double-tap) - show undo directly
+            if (originalTextBeforeSpellCheck !== null && correctedText !== originalTextBeforeSpellCheck) {
+                showUndoTooltip(originalTextBeforeSpellCheck);
+            }
+            originalTextBeforeSpellCheck = null;
+        }
         $("#spellcheck_status").text("Fixed by AI");
 
     } catch (error) {
         if (error.name === "AbortError") {
-            // Request was cancelled by closing panel
+            // Request was cancelled
             return;
         }
         console.error("[Spell Checker] Fix All error:", error);
         toastr.error("Fix All failed: " + error.message);
-        $count.text("");
+        if (panelVisible) {
+            $("#spellcheck_results_count").text("");
+        }
     } finally {
         fixAllAbortController = null;
         $("#spellcheck_fix_all").css("pointer-events", "").css("opacity", "");
@@ -529,6 +546,7 @@ async function fixAll() {
 }
 
 function handleKeydown(e) {
+    const panelOpen = $("#spellcheck_results_panel").is(":visible");
     const s = settings();
     const modifier = s.modifier || "ctrl";
     const rawKey = s.key || " ";
@@ -546,7 +564,22 @@ function handleKeydown(e) {
     if (modifierPressed && pressedKey === key) {
         e.preventDefault();
         e.stopPropagation();
-        runSpellCheck();
+
+        const now = Date.now();
+        const isDoubleTap = (now - lastShortcutTime) < DOUBLE_TAP_THRESHOLD;
+        lastShortcutTime = now;
+
+        if (panelOpen) {
+            // Panel open: shortcut = Fix All
+            fixAll();
+        } else if (isDoubleTap) {
+            // Double-tap: send directly to AI
+            originalTextBeforeSpellCheck = $("#send_textarea").val();
+            fixAll(true); // skip panel check
+        } else {
+            // Normal: run spell check
+            runSpellCheck();
+        }
     }
 }
 
@@ -637,6 +670,15 @@ jQuery(async () => {
     });
 
     $("#send_textarea").on("keydown", handleKeydown);
+
+    // Esc to close panel from anywhere
+    $(document).on("keydown", (e) => {
+        if (e.key === "Escape" && $("#spellcheck_results_panel").is(":visible")) {
+            e.preventDefault();
+            clearResults();
+            hideResultsPanel();
+        }
+    });
 
     try {
         initDictionary();
