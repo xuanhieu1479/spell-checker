@@ -1,5 +1,5 @@
 export async function callAI(text, misspelledWord, settings) {
-    const { apiEndpoint, apiKey, modelName, apiFormat, customPrompt } = settings;
+    const { apiEndpoint, apiKey, modelName, apiFormat = "openai", customPrompt } = settings;
 
     if (!apiEndpoint || !apiKey) {
         throw new Error("API endpoint and key must be configured");

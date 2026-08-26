@@ -9,11 +9,10 @@ const extensionFolderPath = `scripts/extensions/third-party/${extensionName}`;
 
 const defaultSettings = {
     modifier: "ctrl",
-    key: "Space",
-    apiFormat: "openai",
-    apiEndpoint: "",
+    key: " ",
+    apiEndpoint: "https://openrouter.ai/api/v1",
     apiKey: "",
-    modelName: "gemini-2.0-flash-lite",
+    modelName: "google/gemini-2.0-flash-lite-001",
     customPrompt: "",
     customDictionary: [],
 };
@@ -168,7 +167,6 @@ function showTooltip($word, x, y) {
                 apiEndpoint: s.apiEndpoint,
                 apiKey: s.apiKey,
                 modelName: s.modelName,
-                apiFormat: s.apiFormat,
                 customPrompt: s.customPrompt,
             });
             if (result.success && result.suggestion) {
@@ -447,7 +445,6 @@ jQuery(async () => {
     const s = settings();
     $("#spellcheck_modifier").val(s.modifier);
     $("#spellcheck_key").val(s.key);
-    $("#spellcheck_api_format").val(s.apiFormat);
     $("#spellcheck_api_endpoint").val(s.apiEndpoint);
     $("#spellcheck_api_key").val(s.apiKey);
     $("#spellcheck_model_name").val(s.modelName);
@@ -461,13 +458,8 @@ jQuery(async () => {
         saveSettingsDebounced();
     });
 
-    $("#spellcheck_key").on("input", () => {
+    $("#spellcheck_key").on("change", () => {
         settings().key = $("#spellcheck_key").val();
-        saveSettingsDebounced();
-    });
-
-    $("#spellcheck_api_format").on("change", () => {
-        settings().apiFormat = $("#spellcheck_api_format").val();
         saveSettingsDebounced();
     });
 

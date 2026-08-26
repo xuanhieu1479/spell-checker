@@ -27,8 +27,8 @@ For non-native English speakers who write roleplay dialogue with intentional "in
 ### Layer 2: AI Fallback (For Hard Cases)
 - Words with no close dictionary match (edit distance > 2) can be sent to AI
 - Only sends the misspelled word + context, not the full message
-- Configurable API endpoint (OpenAI, Google, Anthropic compatible)
-- Default: Gemini Flash Lite (~$0.0005 per check)
+- Default: OpenRouter with Gemini Flash Lite
+- Works with any OpenAI-compatible endpoint
 
 ### Layer 3: Post-Processing Safety Net
 - Ensures AI corrections don't add apostrophes, remove asterisks, or change punctuation
@@ -38,7 +38,7 @@ For non-native English speakers who write roleplay dialogue with intentional "in
 
 Copy the `spell-checker` folder to:
 ```
-SillyTavern/public/scripts/extensions/third_party/spell-checker
+SillyTavern/public/scripts/extensions/third-party/spell-checker
 ```
 
 Reload SillyTavern. The extension appears in the Extensions panel.
@@ -54,7 +54,9 @@ Reload SillyTavern. The extension appears in the Extensions panel.
 ## Settings
 
 - **Keyboard shortcut** — Change from Ctrl+Space if needed
-- **AI API** — Configure endpoint, key, and model for hard cases
+- **API Endpoint** — Default: OpenRouter (works with any OpenAI-compatible API)
+- **API Key** — Your OpenRouter or provider API key
+- **Model Name** — For OpenRouter use `provider/model` format (e.g., `google/gemini-2.0-flash-lite-001`)
 - **Custom prompt** — Customize what's sent to the AI
 - **Custom dictionary** — Words to never flag (one per line)
 

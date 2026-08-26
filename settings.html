@@ -21,7 +21,69 @@
                         <option value="shift">Shift</option>
                     </select>
                     <span>+</span>
-                    <input id="spellcheck_key" type="text" class="text_pole" style="width: 80px;" value="Space" maxlength="20" />
+                    <select id="spellcheck_key" class="text_pole" style="width: 100px;">
+                        <optgroup label="Special">
+                            <option value=" " selected>Space</option>
+                            <option value="Enter">Enter</option>
+                            <option value="Escape">Escape</option>
+                            <option value="Tab">Tab</option>
+                            <option value="Backspace">Backspace</option>
+                        </optgroup>
+                        <optgroup label="Letters">
+                            <option value="a">A</option>
+                            <option value="b">B</option>
+                            <option value="c">C</option>
+                            <option value="d">D</option>
+                            <option value="e">E</option>
+                            <option value="f">F</option>
+                            <option value="g">G</option>
+                            <option value="h">H</option>
+                            <option value="i">I</option>
+                            <option value="j">J</option>
+                            <option value="k">K</option>
+                            <option value="l">L</option>
+                            <option value="m">M</option>
+                            <option value="n">N</option>
+                            <option value="o">O</option>
+                            <option value="p">P</option>
+                            <option value="q">Q</option>
+                            <option value="r">R</option>
+                            <option value="s">S</option>
+                            <option value="t">T</option>
+                            <option value="u">U</option>
+                            <option value="v">V</option>
+                            <option value="w">W</option>
+                            <option value="x">X</option>
+                            <option value="y">Y</option>
+                            <option value="z">Z</option>
+                        </optgroup>
+                        <optgroup label="Numbers">
+                            <option value="0">0</option>
+                            <option value="1">1</option>
+                            <option value="2">2</option>
+                            <option value="3">3</option>
+                            <option value="4">4</option>
+                            <option value="5">5</option>
+                            <option value="6">6</option>
+                            <option value="7">7</option>
+                            <option value="8">8</option>
+                            <option value="9">9</option>
+                        </optgroup>
+                        <optgroup label="Function Keys">
+                            <option value="F1">F1</option>
+                            <option value="F2">F2</option>
+                            <option value="F3">F3</option>
+                            <option value="F4">F4</option>
+                            <option value="F5">F5</option>
+                            <option value="F6">F6</option>
+                            <option value="F7">F7</option>
+                            <option value="F8">F8</option>
+                            <option value="F9">F9</option>
+                            <option value="F10">F10</option>
+                            <option value="F11">F11</option>
+                            <option value="F12">F12</option>
+                        </optgroup>
+                    </select>
                 </div>
             </div>
 
@@ -33,29 +95,22 @@
             </div>
 
             <div class="spellcheck-block">
-                <label for="spellcheck_api_format">API Format:</label>
-                <select id="spellcheck_api_format" class="text_pole">
-                    <option value="openai">OpenAI Compatible</option>
-                    <option value="google">Google (Gemini)</option>
-                    <option value="anthropic">Anthropic (Claude)</option>
-                </select>
-            </div>
-
-            <div class="spellcheck-block">
                 <label for="spellcheck_api_endpoint">API Endpoint:</label>
                 <input id="spellcheck_api_endpoint" type="text" class="text_pole"
-                    placeholder="https://generativelanguage.googleapis.com/v1beta" />
+                    placeholder="https://openrouter.ai/api/v1" value="https://openrouter.ai/api/v1" />
+                <small>OpenRouter, OpenAI, or any OpenAI-compatible endpoint</small>
             </div>
 
             <div class="spellcheck-block">
                 <label for="spellcheck_api_key">API Key:</label>
-                <input id="spellcheck_api_key" type="password" class="text_pole" placeholder="Your API key" />
+                <input id="spellcheck_api_key" type="password" class="text_pole" placeholder="sk-or-..." />
             </div>
 
             <div class="spellcheck-block">
                 <label for="spellcheck_model_name">Model Name:</label>
                 <input id="spellcheck_model_name" type="text" class="text_pole"
-                    placeholder="gemini-2.0-flash-lite" value="gemini-2.0-flash-lite" />
+                    placeholder="google/gemini-2.0-flash-lite-001" value="google/gemini-2.0-flash-lite-001" />
+                <small>For OpenRouter, use format: provider/model-name</small>
             </div>
 
             <hr class="sysHR" />
