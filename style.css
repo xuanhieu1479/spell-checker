@@ -241,8 +241,8 @@
 /* Undo tooltip */
 .spellcheck-undo-tooltip {
     z-index: 10002;
-    background: var(--SmartThemeBlurTintColor, #1a1a1a);
-    border: 1px solid var(--SmartThemeBorderColor, #444);
+    background: #e0e0e0;
+    border: 1px solid #ccc;
     border-radius: 20px;
     padding: 8px 18px;
     cursor: pointer;
