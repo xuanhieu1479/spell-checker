@@ -1,5 +1,7 @@
 const OPENROUTER_API = "https://openrouter.ai/api/v1";
 
+const DEFAULT_SYSTEM_PROMPT = `You are a spell checker. A word is misspelled in the text fragment provided. Reply with ONLY the corrected word, nothing else. No punctuation, no explanation.`;
+
 export async function callAI(text, misspelledWord, settings) {
     const { apiKey, modelName, customPrompt } = settings;
 
@@ -8,9 +10,20 @@ export async function callAI(text, misspelledWord, settings) {
     }
 
     const contextWords = extractContext(text, misspelledWord, 3);
-    const promptText = customPrompt
-        ? `${customPrompt}\n\n${contextWords}`
-        : `A word is misspelled in this fragment. What is the correct word? Only reply with the corrected word, nothing else.\n\nFragment: "${contextWords}"\nMisspelled word: "${misspelledWord}"`;
+    const systemPrompt = customPrompt || DEFAULT_SYSTEM_PROMPT;
+    const userMessage = `Fragment: "${contextWords}"\nMisspelled word: "${misspelledWord}"`;
+
+    const isAnthropic = modelName.startsWith("anthropic/");
+
+    const messages = [
+        {
+            role: "system",
+            content: isAnthropic
+                ? [{ type: "text", text: systemPrompt, cache_control: { type: "ephemeral" } }]
+                : systemPrompt,
+        },
+        { role: "user", content: userMessage },
+    ];
 
     const response = await fetch(`${OPENROUTER_API}/chat/completions`, {
         method: "POST",
@@ -21,7 +34,7 @@ export async function callAI(text, misspelledWord, settings) {
         body: JSON.stringify({
             model: modelName,
             max_tokens: 50,
-            messages: [{ role: "user", content: promptText }],
+            messages,
         }),
     });
 

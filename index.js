@@ -22,6 +22,20 @@ let currentResults = [];
 let isChecking = false;
 let allModels = [];
 
+function trimProviderPrefix(name, provider) {
+    const prefixes = [
+        `${provider}:`,
+        `${provider.charAt(0).toUpperCase() + provider.slice(1)}:`,
+        `${provider.toUpperCase()}:`,
+    ];
+    for (const prefix of prefixes) {
+        if (name.startsWith(prefix)) {
+            return name.slice(prefix.length).trim();
+        }
+    }
+    return name;
+}
+
 async function fetchModels() {
     const response = await fetch(`${OPENROUTER_API}/models`);
     if (!response.ok) throw new Error(`Failed to fetch models: ${response.status}`);
@@ -29,11 +43,15 @@ async function fetchModels() {
     const data = await response.json();
     const models = data.data || [];
 
-    allModels = models.map(m => ({
-        id: m.id,
-        name: m.name || m.id,
-        provider: m.id.split("/")[0],
-    })).sort((a, b) => a.name.localeCompare(b.name));
+    allModels = models.map(m => {
+        const provider = m.id.split("/")[0];
+        const rawName = m.name || m.id;
+        return {
+            id: m.id,
+            name: trimProviderPrefix(rawName, provider),
+            provider,
+        };
+    }).sort((a, b) => a.name.localeCompare(b.name));
 
     return allModels;
 }
