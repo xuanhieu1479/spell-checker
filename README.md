@@ -12,7 +12,9 @@ For non-native English speakers who write roleplay dialogue with intentional "in
 - **Local dictionary** with 39k common words (SCOWL size 35) - instant, free, works offline
 - **AI fallback** via OpenRouter for hard cases (garbled words the dictionary can't match)
 - **Ambiguous word detection** - shows all options when multiple corrections are equally likely
-- **Fix All button** - applies all unambiguous corrections at once
+- **Fix All with AI** - sends entire text to AI for comprehensive spell/grammar check
+- **Undo button** - appears after changes, lets you restore original text (10s timeout)
+- **Double-tap shortcut** - skip local check, send directly to AI
 - **Custom dictionary** - add character names, fantasy terms, slang
 - **Never touches punctuation** - your asterisks, quotes, and commas stay exactly as you wrote them
 
@@ -49,8 +51,21 @@ For non-native English speakers who write roleplay dialogue with intentional "in
 1. Type in the chat input box (`#send_textarea`)
 2. Press **Ctrl+Space** to run spell check
 3. Click highlighted words to see suggestions
-4. Click "Fix All" to apply all unambiguous corrections
+4. Click "Fix All" to send entire text to AI for correction
 5. Ambiguous words (yellow highlight) must be fixed manually
+
+### Keyboard Shortcuts
+
+| Shortcut | Action |
+|----------|--------|
+| **Ctrl+Space** | Run spell check (configurable) |
+| **Ctrl+Space** (panel open) | Trigger Fix All |
+| **Ctrl+Space** (double-tap) | Send directly to AI, skip local check |
+| **Esc** | Close panel, or dismiss undo button |
+
+### Undo
+
+After any changes (auto-fix or AI fix), an **Undo** button appears briefly. Click it to restore your original text. The button auto-dismisses after 10 seconds, or press Esc to hide it.
 
 ## Settings
 

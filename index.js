@@ -239,7 +239,7 @@ function showUndoTooltip(originalText) {
     $undo.css({
         position: "fixed",
         top: (rect.top - 50) + "px",
-        right: "150px",
+        right: "100px",
     });
 
     $undo.on("click", () => {
