@@ -454,10 +454,30 @@ async function fixAll() {
         }
 
         const data = await response.json();
-        const correctedText = data.choices?.[0]?.message?.content;
+        const correctedText = data.choices?.[0]?.message?.content?.trim();
 
         if (!correctedText) {
             throw new Error("No response from AI");
+        }
+
+        // Validate response is actual corrected text, not a refusal
+        const refusalPatterns = [
+            /^i('m| am| cannot| can't| won't| will not| refuse)/i,
+            /^sorry/i,
+            /^i apologize/i,
+            /^unfortunately/i,
+            /^as an ai/i,
+            /^i'm not able/i,
+            /^this (text|content|request)/i,
+        ];
+
+        const looksLikeRefusal = refusalPatterns.some(p => p.test(correctedText));
+        const inputWordCount = text.split(/\s+/).length;
+        const outputWordCount = correctedText.split(/\s+/).length;
+        const tooShort = outputWordCount < inputWordCount * 0.3;
+
+        if (looksLikeRefusal || tooShort) {
+            throw new Error("AI returned a refusal or invalid response. Your text was not changed.");
         }
 
         // Check again if panel is still open
