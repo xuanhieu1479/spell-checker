@@ -227,14 +227,21 @@ function closeTooltip() {
 function showUndoTooltip(originalText) {
     $(".spellcheck-undo-tooltip").remove();
 
+    const $panel = $("#spellcheck_results_panel");
     const $textarea = $("#send_textarea");
-    const offset = $textarea.offset();
 
     const $undo = $('<div class="spellcheck-undo-tooltip">Undo</div>');
+    $("body").append($undo);
+
+    // Position: same Y as panel, centered on panel width
+    const panelOffset = $panel.offset();
+    const panelWidth = $panel.outerWidth();
+    const undoWidth = $undo.outerWidth();
+
     $undo.css({
         position: "fixed",
-        top: offset.top - 30 + "px",
-        left: offset.left + "px",
+        top: panelOffset.top + "px",
+        left: (panelOffset.left + (panelWidth - undoWidth) / 2) + "px",
     });
 
     $undo.on("click", () => {
@@ -242,12 +249,10 @@ function showUndoTooltip(originalText) {
         $undo.remove();
     });
 
-    $("body").append($undo);
-
-    // Disappear after 5 seconds
+    // Disappear after 10 seconds
     setTimeout(() => {
         $undo.fadeOut(300, () => $undo.remove());
-    }, 5000);
+    }, 10000);
 }
 
 function applyCorrection(start, end, suggestion) {
