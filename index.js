@@ -345,6 +345,9 @@ function updateResultsPanel() {
 function showResultsPanel() {
     updateResultsPanel();
     $("#spellcheck_results_panel").show();
+
+    // TODO: Remove this - testing undo tooltip UI
+    showUndoTooltip($("#send_textarea").val());
 }
 
 function hideResultsPanel() {
