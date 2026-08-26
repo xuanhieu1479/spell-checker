@@ -51,16 +51,19 @@
 .spellcheck-overlay .spellcheck-error {
     text-decoration: underline wavy #ff6b6b;
     text-decoration-skip-ink: none;
+    text-underline-offset: 4px;
 }
 
 .spellcheck-overlay .spellcheck-ambiguous {
     text-decoration: underline wavy #f0ad4e;
     text-decoration-skip-ink: none;
+    text-underline-offset: 4px;
 }
 
 .spellcheck-overlay .spellcheck-ai-needed {
     text-decoration: underline dotted #9b59b6;
     text-decoration-skip-ink: none;
+    text-underline-offset: 4px;
 }
 
 /* Tooltip for suggestions */

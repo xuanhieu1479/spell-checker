@@ -588,7 +588,10 @@ jQuery(async () => {
     });
 
     $("#spellcheck_fix_all").on("click", fixAll);
-    $("#spellcheck_close_panel").on("click", hideResultsPanel);
+    $("#spellcheck_close_panel").on("click", () => {
+        clearOverlay();
+        hideResultsPanel();
+    });
 
     $(document).on("click", ".spellcheck-word", function(e) {
         e.stopPropagation();
