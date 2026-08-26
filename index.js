@@ -136,6 +136,10 @@ function showTooltipForResult(r, x, y) {
 
     const $tooltip = $('<div class="spellcheck-tooltip"></div>');
 
+    $tooltip.on("mouseenter", () => {
+        highlightWordInTextarea(start, end);
+    });
+
     let headerText = `"${word}"`;
     let iconHtml = "";
     if (isAmbiguous) {
