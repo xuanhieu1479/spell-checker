@@ -54,6 +54,7 @@ export function shouldSkipWord(word) {
     if (/^\d+$/.test(word)) return true;
     if (/\d/.test(word)) return true;
     if (word === word.toUpperCase() && word.length > 1) return true;
+    if (/^[A-Z]/.test(word)) return true;  // Skip capitalized words (likely names)
     if (/^https?:\/\//.test(word)) return true;
     if (/^www\./.test(word)) return true;
     if (/\.(com|org|net|io|co|dev)$/i.test(word)) return true;
