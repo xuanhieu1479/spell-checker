@@ -230,18 +230,25 @@ function showUndoTooltip(originalText) {
     const $panel = $("#spellcheck_results_panel");
     const $textarea = $("#send_textarea");
 
-    const $undo = $('<div class="spellcheck-undo-tooltip">Undo</div>');
+    const $undo = $('<div class="spellcheck-undo-tooltip"><span class="undo-text">Undo</span></div>');
     $("body").append($undo);
 
-    // Position: same Y as panel, centered on panel width
-    const panelOffset = $panel.offset();
-    const panelWidth = $panel.outerWidth();
+    // Position: same Y as panel top, centered on panel width
+    // Panel is fixed at right:20px, width:320px
+    const panelRight = 20;
+    const panelWidth = 320;
     const undoWidth = $undo.outerWidth();
+    const panelTop = $panel.css("bottom") ?
+        window.innerHeight - parseInt($panel.css("bottom")) - $panel.outerHeight() :
+        $panel.offset()?.top || 200;
+
+    const panelLeft = window.innerWidth - panelRight - panelWidth;
+    const undoLeft = panelLeft + (panelWidth - undoWidth) / 2;
 
     $undo.css({
         position: "fixed",
-        top: panelOffset.top + "px",
-        left: (panelOffset.left + (panelWidth - undoWidth) / 2) + "px",
+        top: (panelTop - 40) + "px",
+        left: undoLeft + "px",
     });
 
     $undo.on("click", () => {
