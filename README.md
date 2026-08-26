@@ -9,7 +9,7 @@ For non-native English speakers who write roleplay dialogue with intentional "in
 ## Features
 
 - **Ctrl+Space to check** - No background scanning, no timers, no overhead when idle
-- **Local dictionary** with 172k words - instant, free, works offline
+- **Local dictionary** with 39k common words (SCOWL size 35) - instant, free, works offline
 - **AI fallback** via OpenRouter for hard cases (garbled words the dictionary can't match)
 - **Ambiguous word detection** - shows all options when multiple corrections are equally likely
 - **Fix All button** - applies all unambiguous corrections at once
@@ -19,7 +19,7 @@ For non-native English speakers who write roleplay dialogue with intentional "in
 ## How It Works
 
 ### Layer 1: Local Dictionary (Free, Instant)
-- Checks each word against 172,782 common English words
+- Checks each word against 39,101 common English words
 - Uses Damerau-Levenshtein distance for typo detection
 - Suggests closest matches ranked by word frequency
 - **Ambiguous words** (like "claming" -> "claiming" or "calming") show all options - you choose
@@ -82,7 +82,7 @@ For non-native English speakers who write roleplay dialogue with intentional "in
 
 ## Credits
 
-- Dictionary from [Maximax67/English-Valid-Words](https://github.com/Maximax67/English-Valid-Words) (172,782 words with frequency data)
+- Dictionary from [SCOWL](http://wordlist.aspell.net/) size 35 (39,101 common English words)
 - AI fallback via [OpenRouter](https://openrouter.ai)
 
 ## License

@@ -51,22 +51,16 @@
 .spellcheck-overlay .spellcheck-error {
     text-decoration: underline wavy #ff6b6b;
     text-decoration-skip-ink: none;
-    background: rgba(255, 107, 107, 0.15);
-    border-radius: 2px;
 }
 
 .spellcheck-overlay .spellcheck-ambiguous {
     text-decoration: underline wavy #f0ad4e;
     text-decoration-skip-ink: none;
-    background: rgba(240, 173, 78, 0.15);
-    border-radius: 2px;
 }
 
 .spellcheck-overlay .spellcheck-ai-needed {
     text-decoration: underline dotted #9b59b6;
     text-decoration-skip-ink: none;
-    background: rgba(155, 89, 182, 0.15);
-    border-radius: 2px;
 }
 
 /* Tooltip for suggestions */
