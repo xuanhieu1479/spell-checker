@@ -1,52 +1,73 @@
-# Spell Checker
+# Spell Checker for SillyTavern
 
-A SillyTavern extension that provides real-time spell checking for your chat input.
+A SillyTavern extension that checks spelling **only when you ask it to**. It fixes misspelled words without touching your punctuation, formatting, or sentence structure.
+
+## Why This Exists
+
+For non-native English speakers who write roleplay dialogue with intentional "incorrect" grammar — deliberate comma placement for pauses, sentence fragments, ellipses, asterisks for emphasis. Tools like QuillBot aggressively restructure sentences and change meaning. This extension respects your writing style.
 
 ## Features
 
-- Real-time spell checking as you type
-- Customizable highlight color and underline style
-- Custom dictionary for adding words that shouldn't be flagged
-- Ignore patterns using regex (e.g., skip template tags like `{{char}}`)
-- Click on misspelled words to see suggestions
-- Slash commands for quick access
+- **Ctrl+Space to check** — No background scanning, no timers, no overhead when idle
+- **Local dictionary** with 172k words — instant, free, works offline
+- **AI fallback** for hard cases (garbled words the dictionary can't match)
+- **Ambiguous word detection** — shows all options when multiple corrections are equally likely
+- **Fix All button** — applies all unambiguous corrections at once
+- **Custom dictionary** — add character names, fantasy terms, slang
+- **Never touches punctuation** — your asterisks, quotes, and commas stay exactly as you wrote them
+
+## How It Works
+
+### Layer 1: Local Dictionary (Free, Instant)
+- Checks each word against 172,782 common English words
+- Uses Damerau-Levenshtein distance for typo detection
+- Suggests closest matches ranked by word frequency
+- **Ambiguous words** (like "claming" → "claiming" or "calming") show all options — you choose
+
+### Layer 2: AI Fallback (For Hard Cases)
+- Words with no close dictionary match (edit distance > 2) can be sent to AI
+- Only sends the misspelled word + context, not the full message
+- Configurable API endpoint (OpenAI, Google, Anthropic compatible)
+- Default: Gemini Flash Lite (~$0.0005 per check)
+
+### Layer 3: Post-Processing Safety Net
+- Ensures AI corrections don't add apostrophes, remove asterisks, or change punctuation
+- Preserves your original formatting character-by-character
 
 ## Installation
 
-1. Copy the `spell-checker` folder to your SillyTavern extensions directory:
-   ```
-   SillyTavern/public/scripts/extensions/third_party/spell-checker
-   ```
+Copy the `spell-checker` folder to:
+```
+SillyTavern/public/scripts/extensions/third_party/spell-checker
+```
 
-2. Restart SillyTavern or reload the page
+Reload SillyTavern. The extension appears in the Extensions panel.
 
-3. The extension will appear in the Extensions panel
+## Usage
 
-## Slash Commands
-
-- `/spellcheck` - Toggle spell checker on/off
-- `/addword <word>` - Add a word to the custom dictionary
-- `/removeword <word>` - Remove a word from the custom dictionary
+1. Type in the chat input box (`#send_textarea`)
+2. Press **Ctrl+Space** to run spell check
+3. Click highlighted words to see suggestions
+4. Click "Fix All" to apply all unambiguous corrections
+5. Ambiguous words (yellow highlight) must be fixed manually
 
 ## Settings
 
-- **Enable spell checking** - Toggle the extension on/off
-- **Check while typing** - Enable real-time checking as you type
-- **Highlight color** - Color of the underline for misspelled words
-- **Underline style** - Style of underline (wavy, dotted, dashed, solid, double)
-- **Min word length** - Minimum length for words to be checked
-- **Ignored Patterns** - Regex patterns for text to ignore (one per line)
+- **Keyboard shortcut** — Change from Ctrl+Space if needed
+- **AI API** — Configure endpoint, key, and model for hard cases
+- **Custom prompt** — Customize what's sent to the AI
+- **Custom dictionary** — Words to never flag (one per line)
 
-## Custom Dictionary
+## What This Extension Will NOT Do
 
-Click "Manage Dictionary" to add or remove words from your custom dictionary. Words in the custom dictionary will never be flagged as misspellings.
-
-## Default Ignored Patterns
-
-The following patterns are ignored by default:
-- `\{\{[^}]+\}\}` - SillyTavern template tags (e.g., `{{char}}`, `{{user}}`)
-- `\[\[[^\]]+\]\]` - Wiki-style links
-- `<[^>]+>` - HTML tags
+- Scan automatically in the background
+- Touch your punctuation or formatting
+- Add apostrophes to "dont" or "whats"
+- Remove your asterisks from `*emphasis*`
+- Close your unclosed quotation marks
+- Restructure your sentences
+- Run on any timer or interval
+- Store data in IndexedDB
 
 ## License
 

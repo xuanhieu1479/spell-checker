@@ -1,29 +1,25 @@
-import { extension_settings, getContext } from "../../../extensions.js";
-import { saveSettingsDebounced, eventSource, event_types } from "../../../../script.js";
-import { registerSlashCommand } from "../../../slash-commands.js";
+import { extension_settings } from "../../../extensions.js";
+import { saveSettingsDebounced } from "../../../../script.js";
+import { initDictionary, checkText } from "./spellcheck.js";
+import { checkWordWithAI } from "./ai-fallback.js";
+import { applySingleCorrection } from "./postprocess.js";
 
 const extensionName = "spell-checker";
 const extensionFolderPath = `scripts/extensions/third_party/${extensionName}`;
 
 const defaultSettings = {
-    enabled: true,
-    checkOnInput: true,
-    highlightColor: "#ff6b6b",
-    underlineStyle: "wavy",
+    modifier: "ctrl",
+    key: "Space",
+    apiFormat: "openai",
+    apiEndpoint: "",
+    apiKey: "",
+    modelName: "gemini-2.0-flash-lite",
+    customPrompt: "",
     customDictionary: [],
-    ignoredPatterns: [
-        "\\{\\{[^}]+\\}\\}",
-        "\\[\\[[^\\]]+\\]\\]",
-        "<[^>]+>",
-    ],
-    minWordLength: 2,
-    checkUserInput: true,
-    checkAIResponses: false,
 };
 
-let spellCheckDebounce = null;
-let lastCheckedText = "";
-let currentSuggestions = new Map();
+let currentResults = [];
+let isChecking = false;
 
 function settings() {
     extension_settings[extensionName] = extension_settings[extensionName] || {};
@@ -35,95 +31,13 @@ function settings() {
     return extension_settings[extensionName];
 }
 
-function escapeRegex(str) {
-    return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-function shouldIgnoreWord(word) {
+function getCustomDictionary() {
     const s = settings();
-    if (word.length < s.minWordLength) return true;
-    if (/^\d+$/.test(word)) return true;
-    if (s.customDictionary.includes(word.toLowerCase())) return true;
-
-    for (const pattern of s.ignoredPatterns) {
-        try {
-            if (new RegExp(pattern, "i").test(word)) return true;
-        } catch {}
+    if (Array.isArray(s.customDictionary)) return s.customDictionary;
+    if (typeof s.customDictionary === "string") {
+        return s.customDictionary.split("\n").map(w => w.trim()).filter(Boolean);
     }
-    return false;
-}
-
-function stripIgnoredPatterns(text) {
-    const s = settings();
-    let result = text;
-    for (const pattern of s.ignoredPatterns) {
-        try {
-            result = result.replace(new RegExp(pattern, "gi"), " ");
-        } catch {}
-    }
-    return result;
-}
-
-function extractWords(text) {
-    const cleaned = stripIgnoredPatterns(text);
-    const words = cleaned.match(/[a-zA-Z']+/g) || [];
-    return words.filter(w => !shouldIgnoreWord(w));
-}
-
-async function checkSpelling(word) {
-    if (typeof window.spellCheckAPI === "function") {
-        return await window.spellCheckAPI(word);
-    }
-
-    if ("queryLocalDictionary" in navigator) {
-        try {
-            return await navigator.queryLocalDictionary(word);
-        } catch {}
-    }
-
-    return { correct: true, suggestions: [] };
-}
-
-async function checkText(text) {
-    const words = extractWords(text);
-    const results = [];
-    const uniqueWords = [...new Set(words.map(w => w.toLowerCase()))];
-
-    for (const word of uniqueWords) {
-        const result = await checkSpelling(word);
-        if (!result.correct) {
-            results.push({
-                word,
-                suggestions: result.suggestions || [],
-            });
-        }
-    }
-    return results;
-}
-
-function highlightMisspellings($textarea, misspellings) {
-    const s = settings();
-    if (!s.enabled || misspellings.length === 0) {
-        clearHighlights();
-        return;
-    }
-
-    let $overlay = $("#spellcheck_overlay");
-    if (!$overlay.length) {
-        $overlay = $('<div id="spellcheck_overlay" class="spellcheck-overlay"></div>');
-        $textarea.parent().css("position", "relative").append($overlay);
-    }
-
-    const text = $textarea.val();
-    let html = escapeHtml(text);
-
-    for (const m of misspellings) {
-        const pattern = new RegExp(`\\b(${escapeRegex(m.word)})\\b`, "gi");
-        html = html.replace(pattern, `<span class="spellcheck-error" data-word="$1" data-suggestions="${m.suggestions.slice(0, 5).join(",")}">$1</span>`);
-    }
-
-    $overlay.html(html);
-    syncOverlayPosition($textarea, $overlay);
+    return [];
 }
 
 function escapeHtml(str) {
@@ -135,300 +49,470 @@ function escapeHtml(str) {
         .replace(/'/g, "&#039;");
 }
 
-function syncOverlayPosition($textarea, $overlay) {
+function createOverlay($textarea) {
+    let $overlay = $("#spellcheck_overlay");
+    if ($overlay.length) $overlay.remove();
+
+    $overlay = $('<div id="spellcheck_overlay" class="spellcheck-overlay"></div>');
+    $textarea.parent().css("position", "relative");
+    $textarea.after($overlay);
+    return $overlay;
+}
+
+function syncOverlay($textarea, $overlay) {
+    const styles = window.getComputedStyle($textarea[0]);
     $overlay.css({
-        width: $textarea.width() + "px",
-        height: $textarea.height() + "px",
+        position: "absolute",
         top: $textarea.position().top + "px",
         left: $textarea.position().left + "px",
-        padding: $textarea.css("padding"),
-        fontSize: $textarea.css("font-size"),
-        fontFamily: $textarea.css("font-family"),
-        lineHeight: $textarea.css("line-height"),
+        width: $textarea.outerWidth() + "px",
+        height: $textarea.outerHeight() + "px",
+        padding: styles.padding,
+        fontSize: styles.fontSize,
+        fontFamily: styles.fontFamily,
+        lineHeight: styles.lineHeight,
+        letterSpacing: styles.letterSpacing,
+        wordSpacing: styles.wordSpacing,
+        textAlign: styles.textAlign,
         whiteSpace: "pre-wrap",
         wordWrap: "break-word",
-        overflow: "hidden",
+        overflowWrap: "break-word",
+        boxSizing: "border-box",
     });
     $overlay.scrollTop($textarea.scrollTop());
+    $overlay.scrollLeft($textarea.scrollLeft());
 }
 
-function clearHighlights() {
-    $("#spellcheck_overlay").remove();
-    currentSuggestions.clear();
-}
-
-function showSuggestionsPopup(word, suggestions, x, y) {
-    closeSuggestionsPopup();
-
-    if (!suggestions || suggestions.length === 0) {
-        suggestions = ["(no suggestions)"];
+function renderOverlay($textarea, $overlay, text, results) {
+    if (results.length === 0) {
+        $overlay.html("");
+        return;
     }
 
-    const $popup = $('<div id="spellcheck_popup" class="spellcheck-popup"></div>');
-    $popup.css({ left: x + "px", top: y + "px" });
+    let html = "";
+    let lastEnd = 0;
 
-    for (const suggestion of suggestions) {
-        const $item = $(`<div class="spellcheck-suggestion">${suggestion}</div>`);
-        if (suggestion !== "(no suggestions)") {
-            $item.on("click", () => {
-                replaceWord(word, suggestion);
-                closeSuggestionsPopup();
-            });
+    const sorted = [...results].sort((a, b) => a.start - b.start);
+
+    for (const r of sorted) {
+        if (r.start > lastEnd) {
+            html += escapeHtml(text.slice(lastEnd, r.start));
         }
-        $popup.append($item);
+
+        let className = "spellcheck-word spellcheck-error";
+        if (r.ambiguous) className = "spellcheck-word spellcheck-ambiguous";
+        else if (r.needsAI) className = "spellcheck-word spellcheck-ai-needed";
+
+        const suggestions = (r.suggestions || []).slice(0, 5).join(",");
+        const dataAttrs = `data-start="${r.start}" data-end="${r.end}" data-word="${escapeHtml(r.word)}" data-suggestions="${escapeHtml(suggestions)}" data-ambiguous="${r.ambiguous || false}" data-needs-ai="${r.needsAI || false}"`;
+
+        html += `<span class="${className}" ${dataAttrs}>${escapeHtml(r.raw)}</span>`;
+        lastEnd = r.end;
     }
 
-    const $addToDict = $('<div class="spellcheck-suggestion spellcheck-add">Add to dictionary</div>');
-    $addToDict.on("click", () => {
+    if (lastEnd < text.length) {
+        html += escapeHtml(text.slice(lastEnd));
+    }
+
+    $overlay.html(html);
+    syncOverlay($textarea, $overlay);
+}
+
+function showTooltip($word, x, y) {
+    closeTooltip();
+
+    const word = $word.data("word");
+    const suggestionsStr = $word.data("suggestions") || "";
+    const suggestions = suggestionsStr ? suggestionsStr.split(",") : [];
+    const isAmbiguous = $word.data("ambiguous") === true || $word.data("ambiguous") === "true";
+    const needsAI = $word.data("needs-ai") === true || $word.data("needs-ai") === "true";
+    const start = parseInt($word.data("start"), 10);
+    const end = parseInt($word.data("end"), 10);
+
+    const $tooltip = $('<div class="spellcheck-tooltip"></div>');
+
+    let headerText = `"${word}"`;
+    let iconHtml = "";
+    if (isAmbiguous) {
+        iconHtml = '<span class="spellcheck-icon ambiguous">&#9878;</span>';
+        headerText += " — pick one";
+    } else if (needsAI) {
+        iconHtml = '<span class="spellcheck-icon ai">&#10022;</span>';
+        headerText += " — AI suggestion";
+    }
+
+    $tooltip.append(`<div class="spellcheck-tooltip-header">${iconHtml}<span>${headerText}</span></div>`);
+
+    if (suggestions.length === 0 && !needsAI) {
+        $tooltip.append('<div class="spellcheck-suggestion" style="color: #888; cursor: default;">(no suggestions)</div>');
+    } else {
+        for (let i = 0; i < suggestions.length; i++) {
+            const sug = suggestions[i];
+            const $item = $(`<div class="spellcheck-suggestion"><span class="suggestion-word">${escapeHtml(sug)}</span></div>`);
+            $item.on("click", () => {
+                applyCorrection(start, end, sug);
+                closeTooltip();
+            });
+            $tooltip.append($item);
+        }
+    }
+
+    if (needsAI && suggestions.length === 0) {
+        const $aiBtn = $('<div class="spellcheck-tooltip-action">Ask AI for suggestion...</div>');
+        $aiBtn.on("click", async () => {
+            $aiBtn.html('Checking... <span class="spellcheck-loading"></span>');
+            const $textarea = $("#send_textarea");
+            const text = $textarea.val();
+            const s = settings();
+            const result = await checkWordWithAI(text, word, {
+                apiEndpoint: s.apiEndpoint,
+                apiKey: s.apiKey,
+                modelName: s.modelName,
+                apiFormat: s.apiFormat,
+                customPrompt: s.customPrompt,
+            });
+            if (result.success && result.suggestion) {
+                applyCorrection(start, end, result.suggestion);
+                closeTooltip();
+            } else {
+                $aiBtn.text(result.error || "No suggestion found");
+            }
+        });
+        $tooltip.append("<hr>").append($aiBtn);
+    }
+
+    $tooltip.append("<hr>");
+    const $addDict = $('<div class="spellcheck-tooltip-action">Add to dictionary</div>');
+    $addDict.on("click", () => {
         addToDictionary(word);
-        closeSuggestionsPopup();
+        closeTooltip();
+        runSpellCheck();
     });
-    $popup.append($("<hr>")).append($addToDict);
+    $tooltip.append($addDict);
 
-    $("body").append($popup);
+    $("body").append($tooltip);
 
-    $(document).one("click", closeSuggestionsPopup);
+    const tooltipWidth = $tooltip.outerWidth();
+    const tooltipHeight = $tooltip.outerHeight();
+    let left = x;
+    let top = y + 10;
+
+    if (left + tooltipWidth > window.innerWidth - 10) {
+        left = window.innerWidth - tooltipWidth - 10;
+    }
+    if (top + tooltipHeight > window.innerHeight - 10) {
+        top = y - tooltipHeight - 10;
+    }
+
+    $tooltip.css({ left: left + "px", top: top + "px" });
+
+    setTimeout(() => {
+        $(document).one("click", closeTooltip);
+    }, 10);
 }
 
-function closeSuggestionsPopup() {
-    $("#spellcheck_popup").remove();
+function closeTooltip() {
+    $(".spellcheck-tooltip").remove();
 }
 
-function replaceWord(oldWord, newWord) {
+function applyCorrection(start, end, suggestion) {
     const $textarea = $("#send_textarea");
     const text = $textarea.val();
-    const pattern = new RegExp(`\\b${escapeRegex(oldWord)}\\b`, "gi");
-    $textarea.val(text.replace(pattern, newWord));
-    $textarea.trigger("input");
+    const originalWord = text.slice(start, end);
+    const corrected = applySingleCorrection(originalWord, suggestion);
+    const newText = text.slice(0, start) + corrected + text.slice(end);
+    $textarea.val(newText);
+
+    const offset = corrected.length - (end - start);
+    currentResults = currentResults
+        .filter(r => r.start !== start)
+        .map(r => {
+            if (r.start > start) {
+                return { ...r, start: r.start + offset, end: r.end + offset };
+            }
+            return r;
+        });
+
+    const $overlay = $("#spellcheck_overlay");
+    if ($overlay.length) {
+        renderOverlay($textarea, $overlay, newText, currentResults);
+    }
+    updateResultsPanel();
 }
 
 function addToDictionary(word) {
     const s = settings();
-    const lower = word.toLowerCase();
-    if (!s.customDictionary.includes(lower)) {
-        s.customDictionary.push(lower);
+    const dict = getCustomDictionary();
+    const lowerWord = word.toLowerCase();
+    if (!dict.map(w => w.toLowerCase()).includes(lowerWord)) {
+        dict.push(word);
+        s.customDictionary = dict;
         saveSettingsDebounced();
+        $("#spellcheck_custom_dict").val(dict.join("\n"));
         toastr.success(`Added "${word}" to dictionary`);
-        triggerSpellCheck();
     }
 }
 
-function removeFromDictionary(word) {
-    const s = settings();
-    const lower = word.toLowerCase();
-    const idx = s.customDictionary.indexOf(lower);
-    if (idx !== -1) {
-        s.customDictionary.splice(idx, 1);
-        saveSettingsDebounced();
-        toastr.info(`Removed "${word}" from dictionary`);
-    }
-}
+function updateResultsPanel() {
+    const $count = $("#spellcheck_results_count");
+    const $list = $("#spellcheck_results_list");
 
-async function triggerSpellCheck() {
-    const s = settings();
-    if (!s.enabled || !s.checkOnInput) return;
-
-    const $textarea = $("#send_textarea");
-    const text = $textarea.val();
-
-    if (text === lastCheckedText) return;
-    lastCheckedText = text;
-
-    if (!text.trim()) {
-        clearHighlights();
+    if (currentResults.length === 0) {
+        $count.text("No issues found");
+        $list.html('<div class="spellcheck-no-issues"><div class="fa-solid fa-check-circle"></div><div>All good!</div></div>');
         return;
     }
 
-    const misspellings = await checkText(text);
-    currentSuggestions.clear();
-    for (const m of misspellings) {
-        currentSuggestions.set(m.word.toLowerCase(), m.suggestions);
-    }
-    highlightMisspellings($textarea, misspellings);
-}
+    const ambiguousCount = currentResults.filter(r => r.ambiguous).length;
+    const aiCount = currentResults.filter(r => r.needsAI).length;
+    const normalCount = currentResults.length - ambiguousCount - aiCount;
 
-async function spellCheckCommand(args, value) {
-    const s = settings();
-    s.enabled = !s.enabled;
-    saveSettingsDebounced();
-    $("#spellcheck_enabled").prop("checked", s.enabled);
+    let countText = `${currentResults.length} issue${currentResults.length !== 1 ? "s" : ""}`;
+    if (ambiguousCount > 0) countText += ` (${ambiguousCount} ambiguous)`;
 
-    if (s.enabled) {
-        toastr.success("Spell checker enabled");
-        triggerSpellCheck();
-    } else {
-        toastr.info("Spell checker disabled");
-        clearHighlights();
-    }
-    return "";
-}
-
-async function addWordCommand(args, value) {
-    const word = (value || "").trim();
-    if (!word) {
-        toastr.warning("Usage: /addword <word>");
-        return "";
-    }
-    addToDictionary(word);
-    return "";
-}
-
-async function removeWordCommand(args, value) {
-    const word = (value || "").trim();
-    if (!word) {
-        toastr.warning("Usage: /removeword <word>");
-        return "";
-    }
-    removeFromDictionary(word);
-    return "";
-}
-
-function renderDictionaryList() {
-    const s = settings();
-    const $list = $("#spellcheck_dictionary_list");
+    $count.text(countText);
     $list.empty();
 
-    if (s.customDictionary.length === 0) {
-        $list.append('<div class="spellcheck-empty">No custom words added yet</div>');
-        return;
-    }
+    for (const r of currentResults) {
+        let badgeHtml = "";
+        let wordClass = "spellcheck-result-word";
+        if (r.ambiguous) {
+            badgeHtml = '<span class="spellcheck-result-badge ambiguous">PICK</span>';
+            wordClass += " ambiguous";
+        } else if (r.needsAI) {
+            badgeHtml = '<span class="spellcheck-result-badge ai">AI</span>';
+            wordClass += " ai-needed";
+        }
 
-    const sorted = [...s.customDictionary].sort();
-    for (const word of sorted) {
+        const sugText = r.suggestions.length > 0
+            ? `Suggestions: ${r.suggestions.slice(0, 3).join(", ")}`
+            : "No local suggestions";
+
         const $item = $(`
-            <div class="spellcheck-dict-item">
-                <span class="spellcheck-dict-word">${word}</span>
-                <span class="spellcheck-dict-remove fa-solid fa-xmark" title="Remove"></span>
+            <div class="spellcheck-result-item" data-start="${r.start}">
+                <div class="${wordClass}">${escapeHtml(r.word)}${badgeHtml}</div>
+                <div class="spellcheck-result-suggestions">${sugText}</div>
             </div>
         `);
-        $item.find(".spellcheck-dict-remove").on("click", () => {
-            removeFromDictionary(word);
-            renderDictionaryList();
+
+        $item.on("click", () => {
+            const $word = $(`.spellcheck-word[data-start="${r.start}"]`);
+            if ($word.length) {
+                const rect = $word[0].getBoundingClientRect();
+                showTooltip($word, rect.left, rect.bottom);
+            }
         });
+
         $list.append($item);
     }
 }
 
-function openDictionaryModal() {
-    renderDictionaryList();
-    $("#spellcheck_dictionary_modal").show();
+function showResultsPanel() {
+    updateResultsPanel();
+    $("#spellcheck_results_panel").show();
 }
 
-function closeDictionaryModal() {
-    $("#spellcheck_dictionary_modal").hide();
+function hideResultsPanel() {
+    $("#spellcheck_results_panel").hide();
+}
+
+function clearOverlay() {
+    $("#spellcheck_overlay").remove();
+    currentResults = [];
+}
+
+async function runSpellCheck() {
+    if (isChecking) return;
+
+    const $textarea = $("#send_textarea");
+    const text = $textarea.val();
+
+    if (!text.trim()) {
+        clearOverlay();
+        hideResultsPanel();
+        toastr.info("Nothing to check");
+        return;
+    }
+
+    isChecking = true;
+    $("#spellcheck_status").html('Checking... <span class="spellcheck-loading"></span>');
+
+    try {
+        initDictionary();
+        const customDict = getCustomDictionary();
+        const results = checkText(text, customDict);
+
+        currentResults = results;
+
+        const $overlay = createOverlay($textarea);
+        renderOverlay($textarea, $overlay, text, results);
+
+        $textarea.on("scroll.spellcheck", () => syncOverlay($textarea, $overlay));
+        $textarea.on("input.spellcheck", () => {
+            clearOverlay();
+            hideResultsPanel();
+            $textarea.off(".spellcheck");
+        });
+
+        if (results.length === 0) {
+            toastr.success("No spelling issues found!");
+            hideResultsPanel();
+        } else {
+            const ambiguous = results.filter(r => r.ambiguous).length;
+            const needsAI = results.filter(r => r.needsAI).length;
+            let msg = `Found ${results.length} issue${results.length !== 1 ? "s" : ""}`;
+            if (ambiguous > 0) msg += ` (${ambiguous} need your choice)`;
+            if (needsAI > 0) msg += ` (${needsAI} need AI)`;
+            toastr.warning(msg);
+            showResultsPanel();
+        }
+
+        $("#spellcheck_status").text(`Found ${results.length} issue(s)`);
+    } catch (error) {
+        console.error("[Spell Checker] Error:", error);
+        toastr.error("Spell check failed: " + error.message);
+        $("#spellcheck_status").text("Error: " + error.message);
+    } finally {
+        isChecking = false;
+    }
+}
+
+function fixAll() {
+    const fixable = currentResults.filter(r => !r.ambiguous && !r.needsAI && r.suggestions.length > 0);
+    if (fixable.length === 0) {
+        toastr.info("Nothing to auto-fix. Ambiguous words and AI-needed words must be fixed manually.");
+        return;
+    }
+
+    const sorted = [...fixable].sort((a, b) => b.start - a.start);
+
+    const $textarea = $("#send_textarea");
+    let text = $textarea.val();
+
+    for (const r of sorted) {
+        const originalWord = text.slice(r.start, r.end);
+        const corrected = applySingleCorrection(originalWord, r.suggestions[0]);
+        text = text.slice(0, r.start) + corrected + text.slice(r.end);
+    }
+
+    $textarea.val(text);
+
+    currentResults = currentResults.filter(r => r.ambiguous || r.needsAI || r.suggestions.length === 0);
+
+    const $overlay = $("#spellcheck_overlay");
+    if ($overlay.length) {
+        if (currentResults.length > 0) {
+            const newResults = checkText(text, getCustomDictionary());
+            currentResults = newResults;
+            renderOverlay($textarea, $overlay, text, currentResults);
+        } else {
+            clearOverlay();
+        }
+    }
+
+    updateResultsPanel();
+    toastr.success(`Fixed ${sorted.length} word${sorted.length !== 1 ? "s" : ""}`);
+
+    if (currentResults.length === 0) {
+        hideResultsPanel();
+    }
+}
+
+function handleKeydown(e) {
+    const s = settings();
+    const modifier = s.modifier || "ctrl";
+    const key = (s.key || "Space").toLowerCase();
+
+    let modifierPressed = false;
+    switch (modifier) {
+        case "ctrl": modifierPressed = e.ctrlKey; break;
+        case "alt": modifierPressed = e.altKey; break;
+        case "shift": modifierPressed = e.shiftKey; break;
+    }
+
+    const pressedKey = e.key.toLowerCase() === " " ? "space" : e.key.toLowerCase();
+
+    if (modifierPressed && pressedKey === key) {
+        e.preventDefault();
+        e.stopPropagation();
+        runSpellCheck();
+    }
 }
 
 jQuery(async () => {
-    registerSlashCommand("spellcheck", spellCheckCommand, [], "Toggle spell checker on/off");
-    registerSlashCommand("addword", addWordCommand, [], "Add a word to the custom dictionary. Usage: /addword <word>");
-    registerSlashCommand("removeword", removeWordCommand, [], "Remove a word from the custom dictionary. Usage: /removeword <word>");
-
     const html = await $.get(`${extensionFolderPath}/settings.html`);
     $("#extensions_settings").append(html);
-
-    $("#spellcheck_dictionary_modal").detach().appendTo("body");
+    $("#spellcheck_results_panel").detach().appendTo("body");
 
     const s = settings();
-    $("#spellcheck_enabled").prop("checked", s.enabled);
-    $("#spellcheck_check_on_input").prop("checked", s.checkOnInput);
-    $("#spellcheck_highlight_color").val(s.highlightColor);
-    $("#spellcheck_underline_style").val(s.underlineStyle);
-    $("#spellcheck_min_word_length").val(s.minWordLength);
-    $("#spellcheck_ignored_patterns").val(s.ignoredPatterns.join("\n"));
+    $("#spellcheck_modifier").val(s.modifier);
+    $("#spellcheck_key").val(s.key);
+    $("#spellcheck_api_format").val(s.apiFormat);
+    $("#spellcheck_api_endpoint").val(s.apiEndpoint);
+    $("#spellcheck_api_key").val(s.apiKey);
+    $("#spellcheck_model_name").val(s.modelName);
+    $("#spellcheck_custom_prompt").val(s.customPrompt);
+    $("#spellcheck_custom_dict").val(
+        Array.isArray(s.customDictionary) ? s.customDictionary.join("\n") : s.customDictionary
+    );
 
-    $("#spellcheck_enabled").on("change", () => {
-        settings().enabled = $("#spellcheck_enabled").prop("checked");
-        saveSettingsDebounced();
-        if (settings().enabled) triggerSpellCheck();
-        else clearHighlights();
-    });
-
-    $("#spellcheck_check_on_input").on("change", () => {
-        settings().checkOnInput = $("#spellcheck_check_on_input").prop("checked");
+    $("#spellcheck_modifier").on("change", () => {
+        settings().modifier = $("#spellcheck_modifier").val();
         saveSettingsDebounced();
     });
 
-    $("#spellcheck_highlight_color").on("input", () => {
-        settings().highlightColor = $("#spellcheck_highlight_color").val();
-        saveSettingsDebounced();
-        updateHighlightStyle();
-    });
-
-    $("#spellcheck_underline_style").on("change", () => {
-        settings().underlineStyle = $("#spellcheck_underline_style").val();
-        saveSettingsDebounced();
-        updateHighlightStyle();
-    });
-
-    $("#spellcheck_min_word_length").on("input", () => {
-        settings().minWordLength = parseInt($("#spellcheck_min_word_length").val(), 10) || 2;
+    $("#spellcheck_key").on("input", () => {
+        settings().key = $("#spellcheck_key").val();
         saveSettingsDebounced();
     });
 
-    $("#spellcheck_ignored_patterns").on("input", () => {
-        const patterns = $("#spellcheck_ignored_patterns").val()
-            .split("\n")
-            .map(p => p.trim())
-            .filter(Boolean);
-        settings().ignoredPatterns = patterns;
+    $("#spellcheck_api_format").on("change", () => {
+        settings().apiFormat = $("#spellcheck_api_format").val();
         saveSettingsDebounced();
     });
 
-    $("#spellcheck_open_dictionary").on("click", openDictionaryModal);
-    $("#spellcheck_dictionary_close").on("click", closeDictionaryModal);
-    $("#spellcheck_dictionary_cancel").on("click", closeDictionaryModal);
-
-    $("#spellcheck_add_word_btn").on("click", () => {
-        const word = $("#spellcheck_add_word_input").val().trim();
-        if (word) {
-            addToDictionary(word);
-            $("#spellcheck_add_word_input").val("");
-            renderDictionaryList();
-        }
+    $("#spellcheck_api_endpoint").on("input", () => {
+        settings().apiEndpoint = $("#spellcheck_api_endpoint").val();
+        saveSettingsDebounced();
     });
 
-    $("#spellcheck_add_word_input").on("keypress", (e) => {
-        if (e.key === "Enter") {
-            $("#spellcheck_add_word_btn").click();
-        }
+    $("#spellcheck_api_key").on("input", () => {
+        settings().apiKey = $("#spellcheck_api_key").val();
+        saveSettingsDebounced();
     });
 
-    updateHighlightStyle();
-
-    $("#send_textarea").on("input", () => {
-        clearTimeout(spellCheckDebounce);
-        spellCheckDebounce = setTimeout(triggerSpellCheck, 300);
+    $("#spellcheck_model_name").on("input", () => {
+        settings().modelName = $("#spellcheck_model_name").val();
+        saveSettingsDebounced();
     });
 
-    $(document).on("click", ".spellcheck-error", function (e) {
+    $("#spellcheck_custom_prompt").on("input", () => {
+        settings().customPrompt = $("#spellcheck_custom_prompt").val();
+        saveSettingsDebounced();
+    });
+
+    $("#spellcheck_custom_dict").on("input", () => {
+        const lines = $("#spellcheck_custom_dict").val().split("\n").map(w => w.trim()).filter(Boolean);
+        settings().customDictionary = lines;
+        saveSettingsDebounced();
+    });
+
+    $("#spellcheck_fix_all").on("click", fixAll);
+    $("#spellcheck_close_panel").on("click", hideResultsPanel);
+
+    $(document).on("click", ".spellcheck-word", function(e) {
         e.stopPropagation();
-        const word = $(this).data("word");
-        const suggestionsStr = $(this).data("suggestions") || "";
-        const suggestions = suggestionsStr ? suggestionsStr.split(",") : [];
-        showSuggestionsPopup(word, suggestions, e.pageX, e.pageY);
+        const $word = $(this);
+        showTooltip($word, e.pageX, e.pageY);
     });
+
+    $("#send_textarea").on("keydown", handleKeydown);
 
     try {
-        eventSource.on(event_types.CHAT_CHANGED, () => {
-            clearHighlights();
-            lastCheckedText = "";
-        });
-    } catch {}
-});
-
-function updateHighlightStyle() {
-    const s = settings();
-    let $style = $("#spellcheck_dynamic_style");
-    if (!$style.length) {
-        $style = $('<style id="spellcheck_dynamic_style"></style>');
-        $("head").append($style);
+        initDictionary();
+        $("#spellcheck_status").text("Ready. Dictionary loaded.");
+    } catch (error) {
+        console.error("[Spell Checker] Failed to load dictionary:", error);
+        $("#spellcheck_status").text("Error loading dictionary");
     }
-    $style.text(`
-        .spellcheck-error {
-            text-decoration: underline;
-            text-decoration-style: ${s.underlineStyle};
-            text-decoration-color: ${s.highlightColor};
-            cursor: pointer;
-        }
-    `);
-}
+});

@@ -6,92 +6,97 @@
         </div>
         <div class="inline-drawer-content">
 
-            <div class="spellcheck-block flex-container">
-                <label for="spellcheck_enabled">
-                    <input id="spellcheck_enabled" type="checkbox" checked />
-                    Enable spell checking
-                </label>
-            </div>
-
-            <div class="spellcheck-block flex-container">
-                <label for="spellcheck_check_on_input">
-                    <input id="spellcheck_check_on_input" type="checkbox" checked />
-                    Check while typing
-                </label>
-            </div>
-
-            <hr class="sysHR" />
-
-            <div class="spellcheck-block flex-container">
-                <label for="spellcheck_highlight_color">Highlight color:</label>
-                <input id="spellcheck_highlight_color" type="color" value="#ff6b6b" style="width: 60px;" />
-            </div>
-
-            <div class="spellcheck-block flex-container">
-                <label for="spellcheck_underline_style">Underline style:</label>
-                <select id="spellcheck_underline_style" class="text_pole" style="width: 120px;">
-                    <option value="wavy">Wavy</option>
-                    <option value="dotted">Dotted</option>
-                    <option value="dashed">Dashed</option>
-                    <option value="solid">Solid</option>
-                    <option value="double">Double</option>
-                </select>
-            </div>
-
-            <div class="spellcheck-block flex-container">
-                <label for="spellcheck_min_word_length">Min word length:</label>
-                <input id="spellcheck_min_word_length" type="number" min="1" max="10" value="2" class="text_pole" style="width: 60px;" />
+            <div class="spellcheck-block">
+                <small>Press <kbd>Ctrl</kbd>+<kbd>Space</kbd> to check spelling in the chat input.</small>
             </div>
 
             <hr class="sysHR" />
 
             <div class="spellcheck-block">
-                <label for="spellcheck_ignored_patterns"><b>Ignored Patterns</b> (regex, one per line)</label>
-                <textarea id="spellcheck_ignored_patterns" class="text_pole textarea_compact" rows="4"
-                    placeholder="\\{\\{[^}]+\\}\\}&#10;\\[\\[[^\\]]+\\]\\]&#10;<[^>]+>"></textarea>
-                <small>Words matching these patterns will be ignored. Use regex syntax.</small>
+                <label for="spellcheck_shortcut"><b>Keyboard Shortcut</b></label>
+                <div class="flex-container">
+                    <select id="spellcheck_modifier" class="text_pole" style="width: 100px;">
+                        <option value="ctrl">Ctrl</option>
+                        <option value="alt">Alt</option>
+                        <option value="shift">Shift</option>
+                    </select>
+                    <span>+</span>
+                    <input id="spellcheck_key" type="text" class="text_pole" style="width: 80px;" value="Space" maxlength="20" />
+                </div>
+            </div>
+
+            <hr class="sysHR" />
+
+            <div class="spellcheck-block">
+                <b>AI Fallback Settings</b>
+                <small>Used when local dictionary cannot find a match (edit distance > 2)</small>
+            </div>
+
+            <div class="spellcheck-block">
+                <label for="spellcheck_api_format">API Format:</label>
+                <select id="spellcheck_api_format" class="text_pole">
+                    <option value="openai">OpenAI Compatible</option>
+                    <option value="google">Google (Gemini)</option>
+                    <option value="anthropic">Anthropic (Claude)</option>
+                </select>
+            </div>
+
+            <div class="spellcheck-block">
+                <label for="spellcheck_api_endpoint">API Endpoint:</label>
+                <input id="spellcheck_api_endpoint" type="text" class="text_pole"
+                    placeholder="https://generativelanguage.googleapis.com/v1beta" />
+            </div>
+
+            <div class="spellcheck-block">
+                <label for="spellcheck_api_key">API Key:</label>
+                <input id="spellcheck_api_key" type="password" class="text_pole" placeholder="Your API key" />
+            </div>
+
+            <div class="spellcheck-block">
+                <label for="spellcheck_model_name">Model Name:</label>
+                <input id="spellcheck_model_name" type="text" class="text_pole"
+                    placeholder="gemini-2.0-flash-lite" value="gemini-2.0-flash-lite" />
+            </div>
+
+            <hr class="sysHR" />
+
+            <div class="spellcheck-block">
+                <label for="spellcheck_custom_prompt"><b>Custom Prompt</b> (optional)</label>
+                <textarea id="spellcheck_custom_prompt" class="text_pole textarea_compact" rows="4"
+                    placeholder="A word is misspelled in this fragment. What is the correct word? Only reply with the corrected word, nothing else."></textarea>
+                <small>Your prompt will be followed by the text to check. Format: Your Prompt\n\nText</small>
             </div>
 
             <hr class="sysHR" />
 
             <div class="spellcheck-block">
                 <b>Custom Dictionary</b>
-                <div class="spellcheck-block flex-container">
-                    <input id="spellcheck_open_dictionary" class="menu_button" type="button" value="Manage Dictionary" />
-                </div>
-                <small>Add custom words that should not be flagged as misspellings.</small>
+                <small>Words that should never be flagged (character names, fantasy terms, etc.)</small>
+            </div>
+
+            <div class="spellcheck-block">
+                <textarea id="spellcheck_custom_dict" class="text_pole textarea_compact" rows="6"
+                    placeholder="One word per line..."></textarea>
             </div>
 
             <hr class="sysHR" />
 
             <div class="spellcheck-block">
-                <b>Slash Commands</b>
-                <ul class="spellcheck-commands">
-                    <li><code>/spellcheck</code> - Toggle spell checker on/off</li>
-                    <li><code>/addword &lt;word&gt;</code> - Add word to dictionary</li>
-                    <li><code>/removeword &lt;word&gt;</code> - Remove word from dictionary</li>
-                </ul>
+                <b>Status</b>
+                <div id="spellcheck_status">Ready. Dictionary loaded.</div>
             </div>
 
         </div>
     </div>
 </div>
 
-<div id="spellcheck_dictionary_modal" class="spellcheck-modal" style="display:none;">
-    <div class="spellcheck-modal-content">
-        <div class="spellcheck-modal-header">
-            <b>Custom Dictionary</b>
-            <span id="spellcheck_dictionary_close" class="spellcheck-close">&times;</span>
-        </div>
-        <div class="spellcheck-modal-body">
-            <div class="spellcheck-add-word-row">
-                <input id="spellcheck_add_word_input" type="text" class="text_pole" placeholder="Add new word..." />
-                <input id="spellcheck_add_word_btn" class="menu_button" type="button" value="Add" />
-            </div>
-            <div id="spellcheck_dictionary_list" class="spellcheck-dictionary-list"></div>
-        </div>
-        <div class="spellcheck-modal-footer">
-            <input id="spellcheck_dictionary_cancel" class="menu_button" type="button" value="Close" />
+<div id="spellcheck_results_panel" class="spellcheck-results-panel" style="display:none;">
+    <div class="spellcheck-results-header">
+        <span id="spellcheck_results_count">0 issues found</span>
+        <div class="spellcheck-results-actions">
+            <button id="spellcheck_fix_all" class="menu_button">Fix All</button>
+            <button id="spellcheck_close_panel" class="menu_button">Close</button>
         </div>
     </div>
+    <div id="spellcheck_results_list" class="spellcheck-results-list"></div>
 </div>

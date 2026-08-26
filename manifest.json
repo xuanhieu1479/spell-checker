@@ -1,11 +1,12 @@
 {
     "display_name": "Spell Checker",
-    "loading_order": 10,
+    "loading_order": 100,
     "requires": [],
     "optional": [],
     "js": "index.js",
     "css": "style.css",
     "author": "local",
     "version": "1.0.0",
-    "homePage": "https://github.com/xuanhieu1479/spell-checker"
+    "homePage": "https://github.com/xuanhieu1479/spell-checker",
+    "auto_update": false
 }
