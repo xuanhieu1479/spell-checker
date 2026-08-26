@@ -117,85 +117,22 @@ function escapeHtml(str) {
         .replace(/'/g, "&#039;");
 }
 
-function createOverlay($textarea) {
-    let $overlay = $("#spellcheck_overlay");
-    if ($overlay.length) $overlay.remove();
-
-    $overlay = $('<div id="spellcheck_overlay" class="spellcheck-overlay"></div>');
-    $textarea.parent().css("position", "relative");
-    $textarea.after($overlay);
-    return $overlay;
+function highlightWordInTextarea(start, end) {
+    const $textarea = $("#send_textarea");
+    const textarea = $textarea[0];
+    textarea.focus();
+    textarea.setSelectionRange(start, end);
 }
 
-function syncOverlay($textarea, $overlay) {
-    const styles = window.getComputedStyle($textarea[0]);
-    $overlay.css({
-        position: "absolute",
-        top: $textarea.position().top + "px",
-        left: $textarea.position().left + "px",
-        width: $textarea.outerWidth() + "px",
-        height: $textarea.outerHeight() + "px",
-        padding: styles.padding,
-        fontSize: styles.fontSize,
-        fontFamily: styles.fontFamily,
-        lineHeight: styles.lineHeight,
-        letterSpacing: styles.letterSpacing,
-        wordSpacing: styles.wordSpacing,
-        textAlign: styles.textAlign,
-        whiteSpace: "pre-wrap",
-        wordWrap: "break-word",
-        overflowWrap: "break-word",
-        boxSizing: "border-box",
-    });
-    $overlay.scrollTop($textarea.scrollTop());
-    $overlay.scrollLeft($textarea.scrollLeft());
-}
-
-function renderOverlay($textarea, $overlay, text, results) {
-    if (results.length === 0) {
-        $overlay.html("");
-        return;
-    }
-
-    let html = "";
-    let lastEnd = 0;
-
-    const sorted = [...results].sort((a, b) => a.start - b.start);
-
-    for (const r of sorted) {
-        if (r.start > lastEnd) {
-            html += escapeHtml(text.slice(lastEnd, r.start));
-        }
-
-        let className = "spellcheck-word spellcheck-error";
-        if (r.ambiguous) className = "spellcheck-word spellcheck-ambiguous";
-        else if (r.needsAI) className = "spellcheck-word spellcheck-ai-needed";
-
-        const suggestions = (r.suggestions || []).slice(0, 5).join(",");
-        const dataAttrs = `data-start="${r.start}" data-end="${r.end}" data-word="${escapeHtml(r.word)}" data-suggestions="${escapeHtml(suggestions)}" data-ambiguous="${r.ambiguous || false}" data-needs-ai="${r.needsAI || false}"`;
-
-        html += `<span class="${className}" ${dataAttrs}>${escapeHtml(r.raw)}</span>`;
-        lastEnd = r.end;
-    }
-
-    if (lastEnd < text.length) {
-        html += escapeHtml(text.slice(lastEnd));
-    }
-
-    $overlay.html(html);
-    syncOverlay($textarea, $overlay);
-}
-
-function showTooltip($word, x, y) {
+function showTooltipForResult(r, x, y) {
     closeTooltip();
 
-    const word = $word.data("word");
-    const suggestionsStr = $word.data("suggestions") || "";
-    const suggestions = suggestionsStr ? suggestionsStr.split(",") : [];
-    const isAmbiguous = $word.data("ambiguous") === true || $word.data("ambiguous") === "true";
-    const needsAI = $word.data("needs-ai") === true || $word.data("needs-ai") === "true";
-    const start = parseInt($word.data("start"), 10);
-    const end = parseInt($word.data("end"), 10);
+    const word = r.word;
+    const suggestions = r.suggestions || [];
+    const isAmbiguous = r.ambiguous;
+    const needsAI = r.needsAI;
+    const start = r.start;
+    const end = r.end;
 
     const $tooltip = $('<div class="spellcheck-tooltip"></div>');
 
@@ -300,11 +237,11 @@ function applyCorrection(start, end, suggestion) {
             return r;
         });
 
-    const $overlay = $("#spellcheck_overlay");
-    if ($overlay.length) {
-        renderOverlay($textarea, $overlay, newText, currentResults);
-    }
     updateResultsPanel();
+
+    if (currentResults.length === 0) {
+        hideResultsPanel();
+    }
 }
 
 function addToDictionary(word) {
@@ -325,19 +262,12 @@ function updateResultsPanel() {
     const $list = $("#spellcheck_results_list");
 
     if (currentResults.length === 0) {
-        $count.text("No issues found");
+        $count.text("");
         $list.html('<div class="spellcheck-no-issues"><div class="fa-solid fa-check-circle"></div><div>All good!</div></div>');
         return;
     }
 
-    const ambiguousCount = currentResults.filter(r => r.ambiguous).length;
-    const aiCount = currentResults.filter(r => r.needsAI).length;
-    const normalCount = currentResults.length - ambiguousCount - aiCount;
-
-    let countText = `${currentResults.length} issue${currentResults.length !== 1 ? "s" : ""}`;
-    if (ambiguousCount > 0) countText += ` (${ambiguousCount} ambiguous)`;
-
-    $count.text(countText);
+    $count.text("");
     $list.empty();
 
     for (const r of currentResults) {
@@ -362,12 +292,12 @@ function updateResultsPanel() {
             </div>
         `);
 
-        $item.on("click", () => {
-            const $word = $(`.spellcheck-word[data-start="${r.start}"]`);
-            if ($word.length) {
-                const rect = $word[0].getBoundingClientRect();
-                showTooltip($word, rect.left, rect.bottom);
-            }
+        $item.on("mouseenter", () => {
+            highlightWordInTextarea(r.start, r.end);
+        });
+
+        $item.on("click", (e) => {
+            showTooltipForResult(r, e.pageX, e.pageY);
         });
 
         $list.append($item);
@@ -383,8 +313,7 @@ function hideResultsPanel() {
     $("#spellcheck_results_panel").hide();
 }
 
-function clearOverlay() {
-    $("#spellcheck_overlay").remove();
+function clearResults() {
     currentResults = [];
 }
 
@@ -395,7 +324,7 @@ async function runSpellCheck() {
     const text = $textarea.val();
 
     if (!text.trim()) {
-        clearOverlay();
+        clearResults();
         hideResultsPanel();
         return;
     }
@@ -430,19 +359,14 @@ async function runSpellCheck() {
         const remainingCount = currentResults.length;
 
         if (remainingCount > 0) {
-            const $overlay = createOverlay($textarea);
-            renderOverlay($textarea, $overlay, $textarea.val(), currentResults);
-
-            $textarea.on("scroll.spellcheck", () => syncOverlay($textarea, $overlay));
             $textarea.on("input.spellcheck", () => {
-                clearOverlay();
+                clearResults();
                 hideResultsPanel();
                 $textarea.off(".spellcheck");
             });
 
             showResultsPanel();
         } else {
-            clearOverlay();
             hideResultsPanel();
         }
         let statusMsg = "";
@@ -488,7 +412,7 @@ function fixAll() {
             currentResults = newResults;
             renderOverlay($textarea, $overlay, text, currentResults);
         } else {
-            clearOverlay();
+            clearResults();
         }
     }
 
@@ -604,14 +528,8 @@ jQuery(async () => {
 
     $("#spellcheck_fix_all").on("click", fixAll);
     $("#spellcheck_close_panel").on("click", () => {
-        clearOverlay();
+        clearResults();
         hideResultsPanel();
-    });
-
-    $(document).on("click", ".spellcheck-word", function(e) {
-        e.stopPropagation();
-        const $word = $(this);
-        showTooltip($word, e.pageX, e.pageY);
     });
 
     $("#send_textarea").on("keydown", handleKeydown);

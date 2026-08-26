@@ -30,45 +30,6 @@
     font-size: 0.9em;
 }
 
-/* Overlay for highlighting misspellings */
-.spellcheck-overlay {
-    position: absolute;
-    pointer-events: none;
-    white-space: pre-wrap;
-    word-wrap: break-word;
-    overflow: hidden;
-    color: transparent;
-    z-index: 1;
-    background: transparent;
-    text-shadow: none;
-}
-
-.spellcheck-overlay .spellcheck-word {
-    pointer-events: auto;
-    cursor: pointer;
-    position: relative;
-}
-
-.spellcheck-overlay .spellcheck-error {
-    text-decoration: underline wavy #ff6b6b;
-    text-decoration-skip-ink: none;
-    text-underline-offset: 4px;
-}
-
-.spellcheck-overlay .spellcheck-ambiguous {
-    text-decoration: underline wavy #f0ad4e;
-    text-decoration-skip-ink: none;
-    text-underline-offset: 4px;
-    text-shadow: none;
-}
-
-.spellcheck-overlay .spellcheck-ai-needed {
-    text-decoration: underline dotted #ff6b6b;
-    text-decoration-skip-ink: none;
-    text-underline-offset: 4px;
-    text-shadow: none;
-}
-
 /* Tooltip for suggestions */
 .spellcheck-tooltip {
     position: fixed;
