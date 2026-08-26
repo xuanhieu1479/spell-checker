@@ -228,14 +228,14 @@ function showUndoTooltip(originalText) {
     $(".spellcheck-undo-tooltip").remove();
 
     const $textarea = $("#send_textarea");
-    const textareaOffset = $textarea.offset();
+    const rect = $textarea[0].getBoundingClientRect();
 
     const $undo = $('<div class="spellcheck-undo-tooltip"><span class="undo-text">Undo</span></div>');
     $("body").append($undo);
 
     $undo.css({
         position: "fixed",
-        top: (textareaOffset.top + 35) + "px",
+        top: (rect.top - 35) + "px",
         right: "200px",
     });
 
