@@ -21,6 +21,7 @@ const defaultSettings = {
 let currentResults = [];
 let isChecking = false;
 let allModels = [];
+let fixAllAbortController = null;
 
 function trimProviderPrefix(name, provider) {
     const prefixes = [
@@ -321,6 +322,11 @@ function showResultsPanel() {
 }
 
 function hideResultsPanel() {
+    // Abort any ongoing Fix All request
+    if (fixAllAbortController) {
+        fixAllAbortController.abort();
+        fixAllAbortController = null;
+    }
     $("#spellcheck_results_panel").hide();
 }
 
@@ -394,44 +400,88 @@ async function runSpellCheck() {
     }
 }
 
-function fixAll() {
-    const fixable = currentResults.filter(r => !r.ambiguous && !r.needsAI && r.suggestions.length > 0);
-    if (fixable.length === 0) {
-        toastr.info("Nothing to auto-fix. Ambiguous words and AI-needed words must be fixed manually.");
+async function fixAll() {
+    const $textarea = $("#send_textarea");
+    const text = $textarea.val();
+
+    if (!text.trim()) {
         return;
     }
 
-    const sorted = [...fixable].sort((a, b) => b.start - a.start);
-
-    const $textarea = $("#send_textarea");
-    let text = $textarea.val();
-
-    for (const r of sorted) {
-        const originalWord = text.slice(r.start, r.end);
-        const corrected = applySingleCorrection(originalWord, r.suggestions[0]);
-        text = text.slice(0, r.start) + corrected + text.slice(r.end);
+    const s = settings();
+    if (!s.apiKey) {
+        toastr.error("Please configure an OpenRouter API key in the Spell Checker settings.");
+        return;
     }
 
-    $textarea.val(text);
+    // Show spinner in panel header
+    const $count = $("#spellcheck_results_count");
+    $count.html('Fixing... <span class="spellcheck-loading"></span>');
+    $("#spellcheck_fix_all").css("pointer-events", "none").css("opacity", "0.5");
 
-    currentResults = currentResults.filter(r => r.ambiguous || r.needsAI || r.suggestions.length === 0);
+    // Create abort controller
+    fixAllAbortController = new AbortController();
 
-    const $overlay = $("#spellcheck_overlay");
-    if ($overlay.length) {
-        if (currentResults.length > 0) {
-            const newResults = checkText(text, getCustomDictionary());
-            currentResults = newResults;
-            renderOverlay($textarea, $overlay, text, currentResults);
-        } else {
-            clearResults();
+    const defaultPrompt = "You are a spell checker. Fix all spelling and grammar errors in the following text. Return ONLY the corrected text, nothing else. Preserve the original formatting, line breaks, and punctuation style.";
+    const systemPrompt = s.customPrompt?.trim() || defaultPrompt;
+
+    try {
+        const response = await fetch(`${OPENROUTER_API}/chat/completions`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${s.apiKey}`,
+            },
+            body: JSON.stringify({
+                model: s.modelName || "google/gemini-2.0-flash-lite-001",
+                messages: [
+                    { role: "system", content: systemPrompt },
+                    { role: "user", content: text },
+                ],
+                max_tokens: 4096,
+            }),
+            signal: fixAllAbortController.signal,
+        });
+
+        // Check if panel is still open before processing
+        if (!$("#spellcheck_results_panel").is(":visible")) {
+            return;
         }
-    }
 
-    updateResultsPanel();
-    toastr.success(`Fixed ${sorted.length} word${sorted.length !== 1 ? "s" : ""}`);
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.error?.message || `API error: ${response.status}`);
+        }
 
-    if (currentResults.length === 0) {
+        const data = await response.json();
+        const correctedText = data.choices?.[0]?.message?.content;
+
+        if (!correctedText) {
+            throw new Error("No response from AI");
+        }
+
+        // Check again if panel is still open
+        if (!$("#spellcheck_results_panel").is(":visible")) {
+            return;
+        }
+
+        // Replace textarea content and close panel
+        $textarea.val(correctedText);
+        clearResults();
         hideResultsPanel();
+        $("#spellcheck_status").text("Fixed by AI");
+
+    } catch (error) {
+        if (error.name === "AbortError") {
+            // Request was cancelled by closing panel
+            return;
+        }
+        console.error("[Spell Checker] Fix All error:", error);
+        toastr.error("Fix All failed: " + error.message);
+        $count.text("");
+    } finally {
+        fixAllAbortController = null;
+        $("#spellcheck_fix_all").css("pointer-events", "").css("opacity", "");
     }
 }
 
