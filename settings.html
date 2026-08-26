@@ -1,0 +1,97 @@
+<div class="spell-checker-settings">
+    <div class="inline-drawer">
+        <div class="inline-drawer-toggle inline-drawer-header">
+            <b>Spell Checker</b>
+            <div class="inline-drawer-icon fa-solid fa-circle-chevron-down down"></div>
+        </div>
+        <div class="inline-drawer-content">
+
+            <div class="spellcheck-block flex-container">
+                <label for="spellcheck_enabled">
+                    <input id="spellcheck_enabled" type="checkbox" checked />
+                    Enable spell checking
+                </label>
+            </div>
+
+            <div class="spellcheck-block flex-container">
+                <label for="spellcheck_check_on_input">
+                    <input id="spellcheck_check_on_input" type="checkbox" checked />
+                    Check while typing
+                </label>
+            </div>
+
+            <hr class="sysHR" />
+
+            <div class="spellcheck-block flex-container">
+                <label for="spellcheck_highlight_color">Highlight color:</label>
+                <input id="spellcheck_highlight_color" type="color" value="#ff6b6b" style="width: 60px;" />
+            </div>
+
+            <div class="spellcheck-block flex-container">
+                <label for="spellcheck_underline_style">Underline style:</label>
+                <select id="spellcheck_underline_style" class="text_pole" style="width: 120px;">
+                    <option value="wavy">Wavy</option>
+                    <option value="dotted">Dotted</option>
+                    <option value="dashed">Dashed</option>
+                    <option value="solid">Solid</option>
+                    <option value="double">Double</option>
+                </select>
+            </div>
+
+            <div class="spellcheck-block flex-container">
+                <label for="spellcheck_min_word_length">Min word length:</label>
+                <input id="spellcheck_min_word_length" type="number" min="1" max="10" value="2" class="text_pole" style="width: 60px;" />
+            </div>
+
+            <hr class="sysHR" />
+
+            <div class="spellcheck-block">
+                <label for="spellcheck_ignored_patterns"><b>Ignored Patterns</b> (regex, one per line)</label>
+                <textarea id="spellcheck_ignored_patterns" class="text_pole textarea_compact" rows="4"
+                    placeholder="\\{\\{[^}]+\\}\\}&#10;\\[\\[[^\\]]+\\]\\]&#10;<[^>]+>"></textarea>
+                <small>Words matching these patterns will be ignored. Use regex syntax.</small>
+            </div>
+
+            <hr class="sysHR" />
+
+            <div class="spellcheck-block">
+                <b>Custom Dictionary</b>
+                <div class="spellcheck-block flex-container">
+                    <input id="spellcheck_open_dictionary" class="menu_button" type="button" value="Manage Dictionary" />
+                </div>
+                <small>Add custom words that should not be flagged as misspellings.</small>
+            </div>
+
+            <hr class="sysHR" />
+
+            <div class="spellcheck-block">
+                <b>Slash Commands</b>
+                <ul class="spellcheck-commands">
+                    <li><code>/spellcheck</code> - Toggle spell checker on/off</li>
+                    <li><code>/addword &lt;word&gt;</code> - Add word to dictionary</li>
+                    <li><code>/removeword &lt;word&gt;</code> - Remove word from dictionary</li>
+                </ul>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<div id="spellcheck_dictionary_modal" class="spellcheck-modal" style="display:none;">
+    <div class="spellcheck-modal-content">
+        <div class="spellcheck-modal-header">
+            <b>Custom Dictionary</b>
+            <span id="spellcheck_dictionary_close" class="spellcheck-close">&times;</span>
+        </div>
+        <div class="spellcheck-modal-body">
+            <div class="spellcheck-add-word-row">
+                <input id="spellcheck_add_word_input" type="text" class="text_pole" placeholder="Add new word..." />
+                <input id="spellcheck_add_word_btn" class="menu_button" type="button" value="Add" />
+            </div>
+            <div id="spellcheck_dictionary_list" class="spellcheck-dictionary-list"></div>
+        </div>
+        <div class="spellcheck-modal-footer">
+            <input id="spellcheck_dictionary_cancel" class="menu_button" type="button" value="Close" />
+        </div>
+    </div>
+</div>
