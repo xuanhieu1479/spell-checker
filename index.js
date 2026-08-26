@@ -23,7 +23,7 @@ let isChecking = false;
 let allModels = [];
 let fixAllAbortController = null;
 let originalTextBeforeSpellCheck = null;
-let lastShortcutTime = 0;
+let shortcutDebounceTimer = null;
 const DOUBLE_TAP_THRESHOLD = 400; // ms
 
 function trimProviderPrefix(name, provider) {
@@ -568,25 +568,22 @@ function handleKeydown(e) {
         e.preventDefault();
         e.stopPropagation();
 
-        const now = Date.now();
-        const isDoubleTap = (now - lastShortcutTime) < DOUBLE_TAP_THRESHOLD;
-        lastShortcutTime = now;
-
-        if (isDoubleTap) {
-            // Double-tap: send directly to AI
-            // Close panel if first tap opened it, remove any undo tooltip
-            if (panelOpen) {
-                $("#spellcheck_results_panel").hide();
-            }
+        if (panelOpen) {
+            // Panel open: shortcut = Fix All
+            fixAll();
+        } else if (shortcutDebounceTimer) {
+            // Second tap within threshold: double-tap detected
+            clearTimeout(shortcutDebounceTimer);
+            shortcutDebounceTimer = null;
             $(".spellcheck-undo-tooltip").remove();
             originalTextBeforeSpellCheck = $("#send_textarea").val();
             fixAll(true); // skip panel check
-        } else if (panelOpen) {
-            // Panel open: shortcut = Fix All
-            fixAll();
         } else {
-            // Normal: run spell check
-            runSpellCheck();
+            // First tap: wait to see if double-tap
+            shortcutDebounceTimer = setTimeout(() => {
+                shortcutDebounceTimer = null;
+                runSpellCheck();
+            }, DOUBLE_TAP_THRESHOLD);
         }
     }
 }
