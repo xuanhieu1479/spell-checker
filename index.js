@@ -5,7 +5,7 @@ import { checkWordWithAI } from "./ai-fallback.js";
 import { applySingleCorrection } from "./postprocess.js";
 
 const extensionName = "spell-checker";
-const extensionFolderPath = `scripts/extensions/third_party/${extensionName}`;
+const extensionFolderPath = `scripts/extensions/third-party/${extensionName}`;
 
 const defaultSettings = {
     modifier: "ctrl",
