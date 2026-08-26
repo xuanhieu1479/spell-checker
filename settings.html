@@ -101,15 +101,17 @@
             </div>
 
             <div class="spellcheck-block">
-                <label for="spellcheck_model_name">Model:</label>
+                <label for="spellcheck_model_search">Model:</label>
                 <div class="flex-container">
-                    <select id="spellcheck_model_name" class="text_pole" style="flex: 1;">
-                        <option value="">-- Click Refresh to load models --</option>
-                    </select>
+                    <input id="spellcheck_model_search" type="text" class="text_pole" style="flex: 1;"
+                        placeholder="Type to search models..." autocomplete="off" />
                     <button id="spellcheck_refresh_models" class="menu_button" type="button" title="Refresh model list">
                         <i class="fa-solid fa-refresh"></i>
                     </button>
                 </div>
+                <select id="spellcheck_model_name" class="text_pole" size="6" style="margin-top: 4px;">
+                    <option value="">-- Click Refresh to load models --</option>
+                </select>
             </div>
 
             <hr class="sysHR" />

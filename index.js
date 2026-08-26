@@ -20,38 +20,41 @@ const defaultSettings = {
 
 let currentResults = [];
 let isChecking = false;
-let cachedModels = null;
+let allModels = [];
 
 async function fetchModels() {
-    if (cachedModels) return cachedModels;
-
     const response = await fetch(`${OPENROUTER_API}/models`);
     if (!response.ok) throw new Error(`Failed to fetch models: ${response.status}`);
 
     const data = await response.json();
     const models = data.data || [];
 
-    const grouped = {};
-    for (const model of models) {
-        const [provider] = model.id.split("/");
-        if (!grouped[provider]) grouped[provider] = [];
-        grouped[provider].push({
-            id: model.id,
-            name: model.name || model.id,
-        });
-    }
+    allModels = models.map(m => ({
+        id: m.id,
+        name: m.name || m.id,
+        provider: m.id.split("/")[0],
+    })).sort((a, b) => a.name.localeCompare(b.name));
 
-    for (const provider of Object.keys(grouped)) {
-        grouped[provider].sort((a, b) => a.name.localeCompare(b.name));
-    }
-
-    cachedModels = grouped;
-    return grouped;
+    return allModels;
 }
 
-function populateModelDropdown(grouped, selectedModel) {
+function filterModels(query) {
+    if (!query) return allModels;
+    const q = query.toLowerCase();
+    return allModels.filter(m =>
+        m.id.toLowerCase().includes(q) || m.name.toLowerCase().includes(q)
+    );
+}
+
+function populateModelDropdown(models, selectedModel) {
     const $select = $("#spellcheck_model_name");
     $select.empty();
+
+    const grouped = {};
+    for (const model of models) {
+        if (!grouped[model.provider]) grouped[model.provider] = [];
+        grouped[model.provider].push(model);
+    }
 
     const providers = Object.keys(grouped).sort();
     for (const provider of providers) {
@@ -61,6 +64,10 @@ function populateModelDropdown(grouped, selectedModel) {
             $optgroup.append(`<option value="${model.id}" ${selected}>${model.name}</option>`);
         }
         $select.append($optgroup);
+    }
+
+    if (models.length === 0) {
+        $select.append('<option value="">No models match</option>');
     }
 }
 
@@ -498,11 +505,14 @@ jQuery(async () => {
     async function loadModels() {
         const $btn = $("#spellcheck_refresh_models");
         const $select = $("#spellcheck_model_name");
+        const $search = $("#spellcheck_model_search");
         $btn.prop("disabled", true).find("i").addClass("fa-spin");
 
         try {
-            const grouped = await fetchModels();
-            populateModelDropdown(grouped, settings().modelName);
+            await fetchModels();
+            populateModelDropdown(allModels, settings().modelName);
+            const selected = allModels.find(m => m.id === settings().modelName);
+            if (selected) $search.val(selected.name);
         } catch (error) {
             console.error("[Spell Checker] Failed to fetch models:", error);
             $select.html('<option value="">Failed to load models</option>');
@@ -528,13 +538,22 @@ jQuery(async () => {
         saveSettingsDebounced();
     });
 
-    $("#spellcheck_model_name").on("change", () => {
-        settings().modelName = $("#spellcheck_model_name").val();
+    $("#spellcheck_model_search").on("input", function() {
+        const query = $(this).val();
+        const filtered = filterModels(query);
+        populateModelDropdown(filtered, settings().modelName);
+    });
+
+    $("#spellcheck_model_name").on("change", function() {
+        const modelId = $(this).val();
+        settings().modelName = modelId;
         saveSettingsDebounced();
+        const model = allModels.find(m => m.id === modelId);
+        if (model) $("#spellcheck_model_search").val(model.name);
     });
 
     $("#spellcheck_refresh_models").on("click", () => {
-        cachedModels = null;
+        allModels = [];
         loadModels();
     });
 
