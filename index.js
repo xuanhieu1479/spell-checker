@@ -224,6 +224,32 @@ function closeTooltip() {
     $(".spellcheck-tooltip").remove();
 }
 
+function showUndoTooltip(originalText) {
+    $(".spellcheck-undo-tooltip").remove();
+
+    const $textarea = $("#send_textarea");
+    const offset = $textarea.offset();
+
+    const $undo = $('<div class="spellcheck-undo-tooltip">Undo</div>');
+    $undo.css({
+        position: "fixed",
+        top: offset.top - 30 + "px",
+        left: offset.left + "px",
+    });
+
+    $undo.on("click", () => {
+        $textarea.val(originalText);
+        $undo.remove();
+    });
+
+    $("body").append($undo);
+
+    // Disappear after 5 seconds
+    setTimeout(() => {
+        $undo.fadeOut(300, () => $undo.remove());
+    }, 5000);
+}
+
 function applyCorrection(start, end, suggestion) {
     const $textarea = $("#send_textarea");
     const text = $textarea.val();
@@ -460,39 +486,20 @@ async function fixAll() {
             throw new Error("No response from AI");
         }
 
-        // Validate response is actual corrected text, not a refusal
-        // Only flag as refusal if it contains meta-language about the request itself
-        const refusalPatterns = [
-            /^i('m| am)? (sorry|unable|cannot|can't|won't|not able)/i,
-            /^(sorry|unfortunately|apologies),? (but )?(i |this |the |your )/i,
-            /^as an ai/i,
-            /cannot (process|correct|fix|help|assist|comply)/i,
-            /this (text|content|request|message) (is|contains|appears|seems)/i,
-            /^i (cannot|can't|won't|refuse to) (process|correct|fix|help)/i,
-        ];
-
-        // Only flag if the pattern matches AND original didn't have similar content
-        const looksLikeRefusal = refusalPatterns.some(p => p.test(correctedText)) &&
-            !refusalPatterns.some(p => p.test(text.trim()));
-
-        const inputWordCount = text.split(/\s+/).length;
-        const outputWordCount = correctedText.split(/\s+/).length;
-        const tooShort = inputWordCount > 10 && outputWordCount < inputWordCount * 0.3;
-
-        if (looksLikeRefusal || tooShort) {
-            throw new Error("AI returned a refusal or invalid response. Your text was not changed.");
-        }
-
         // Check again if panel is still open
         if (!$("#spellcheck_results_panel").is(":visible")) {
             return;
         }
 
-        // Replace textarea content and close panel
+        // Store original for undo, then replace
+        const originalText = text;
         $textarea.val(correctedText);
         clearResults();
         hideResultsPanel();
         $("#spellcheck_status").text("Fixed by AI");
+
+        // Show undo tooltip
+        showUndoTooltip(originalText);
 
     } catch (error) {
         if (error.name === "AbortError") {

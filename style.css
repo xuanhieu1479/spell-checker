@@ -237,3 +237,25 @@
     color: #2ecc71;
     margin-bottom: 8px;
 }
+
+/* Undo tooltip */
+.spellcheck-undo-tooltip {
+    z-index: 10002;
+    background: var(--SmartThemeBlurTintColor, #1a1a1a);
+    border: 1px solid var(--SmartThemeBorderColor, #444);
+    border-radius: 4px;
+    padding: 4px 10px;
+    cursor: pointer;
+    color: var(--SmartThemeQuoteColor, #7ec8e3);
+    font-size: 0.85em;
+    animation: spellcheck-blink 0.8s ease-in-out infinite;
+}
+
+.spellcheck-undo-tooltip:hover {
+    background: rgba(255,255,255,0.1);
+}
+
+@keyframes spellcheck-blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+}
