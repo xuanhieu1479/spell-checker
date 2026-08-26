@@ -133,12 +133,18 @@
 
 .spellcheck-results-actions {
     display: flex;
-    gap: 6px;
+    gap: 12px;
 }
 
-.spellcheck-results-actions .menu_button {
-    padding: 4px 10px;
+.spellcheck-action-link {
+    cursor: pointer;
+    color: var(--SmartThemeQuoteColor, #7ec8e3);
     font-size: 0.85em;
+    font-weight: normal;
+}
+
+.spellcheck-action-link:hover {
+    text-decoration: underline;
 }
 
 .spellcheck-results-list {
@@ -158,6 +164,11 @@
 
 .spellcheck-result-item:hover {
     background: rgba(255,255,255,0.06);
+}
+
+.spellcheck-result-item.disabled {
+    cursor: default;
+    opacity: 0.6;
 }
 
 .spellcheck-result-word {

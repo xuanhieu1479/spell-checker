@@ -273,12 +273,15 @@ function updateResultsPanel() {
     for (const r of currentResults) {
         let badgeHtml = "";
         let wordClass = "spellcheck-result-word";
+        let itemClass = "spellcheck-result-item";
+
         if (r.ambiguous) {
             badgeHtml = '<span class="spellcheck-result-badge ambiguous">PICK</span>';
             wordClass += " ambiguous";
         } else if (r.needsAI) {
             badgeHtml = '<span class="spellcheck-result-badge ai">AI</span>';
             wordClass += " ai-needed";
+            itemClass += " disabled";
         }
 
         const sugText = r.suggestions.length > 0
@@ -286,7 +289,7 @@ function updateResultsPanel() {
             : "No local suggestions";
 
         const $item = $(`
-            <div class="spellcheck-result-item" data-start="${r.start}">
+            <div class="${itemClass}" data-start="${r.start}">
                 <div class="${wordClass}">${escapeHtml(r.word)}${badgeHtml}</div>
                 <div class="spellcheck-result-suggestions">${sugText}</div>
             </div>
@@ -296,9 +299,13 @@ function updateResultsPanel() {
             highlightWordInTextarea(r.start, r.end);
         });
 
-        $item.on("click", (e) => {
-            showTooltipForResult(r, e.pageX, e.pageY);
-        });
+        // Only ambiguous items are clickable
+        if (r.ambiguous) {
+            $item.on("click", (e) => {
+                e.stopPropagation();
+                showTooltipForResult(r, e.pageX, e.pageY);
+            });
+        }
 
         $list.append($item);
     }
