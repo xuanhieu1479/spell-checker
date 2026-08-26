@@ -410,9 +410,9 @@ async function runSpellCheck() {
 
         // Auto-fix red cases (clear corrections) silently
         const autoFixable = results.filter(r => !r.ambiguous && !r.needsAI && r.suggestions.length > 0);
-        const needsAttention = results.filter(r => r.ambiguous || r.needsAI);
+        const fixedCount = autoFixable.length;
 
-        if (autoFixable.length > 0) {
+        if (fixedCount > 0) {
             // Apply fixes from end to start to preserve positions
             const sorted = [...autoFixable].sort((a, b) => b.start - a.start);
             let newText = text;
@@ -424,13 +424,12 @@ async function runSpellCheck() {
             $textarea.val(newText);
         }
 
-        currentResults = needsAttention;
+        // Always re-run check after auto-fixes to get correct positions
+        const freshResults = checkText($textarea.val(), customDict);
+        currentResults = freshResults.filter(r => r.ambiguous || r.needsAI);
+        const remainingCount = currentResults.length;
 
-        if (needsAttention.length > 0) {
-            // Recalculate positions after auto-fixes
-            const freshResults = checkText($textarea.val(), customDict);
-            currentResults = freshResults.filter(r => r.ambiguous || r.needsAI);
-
+        if (remainingCount > 0) {
             const $overlay = createOverlay($textarea);
             renderOverlay($textarea, $overlay, $textarea.val(), currentResults);
 
@@ -446,9 +445,6 @@ async function runSpellCheck() {
             clearOverlay();
             hideResultsPanel();
         }
-
-        const fixedCount = autoFixable.length;
-        const remainingCount = currentResults.length;
         let statusMsg = "";
         if (fixedCount > 0) statusMsg += `Fixed ${fixedCount}`;
         if (remainingCount > 0) statusMsg += (statusMsg ? ", " : "") + `${remainingCount} need attention`;

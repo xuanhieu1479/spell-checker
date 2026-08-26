@@ -62,7 +62,7 @@
 }
 
 .spellcheck-overlay .spellcheck-ai-needed {
-    text-decoration: underline dotted #9b59b6;
+    text-decoration: underline dotted #ff6b6b;
     text-decoration-skip-ink: none;
     text-underline-offset: 4px;
 }
@@ -95,7 +95,7 @@
 }
 
 .spellcheck-tooltip-header .spellcheck-icon.ai {
-    color: #9b59b6;
+    color: #ff6b6b;
 }
 
 .spellcheck-tooltip-header .spellcheck-icon.ambiguous {
@@ -208,7 +208,7 @@
 }
 
 .spellcheck-result-word.ai-needed {
-    color: #9b59b6;
+    color: #ff6b6b;
 }
 
 .spellcheck-result-suggestions {
@@ -226,7 +226,7 @@
 }
 
 .spellcheck-result-badge.ai {
-    background: #9b59b6;
+    background: #ff6b6b;
     color: white;
 }
 
