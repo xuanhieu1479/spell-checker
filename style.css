@@ -239,6 +239,24 @@
 }
 
 /* Undo tooltip */
+/* Loading indicator shown in place of the undo button during a direct
+   (double-tap) AI call, so the two never appear at once */
+.spellcheck-loading-tooltip {
+    z-index: 10002;
+    background: transparent;
+    border: 1px solid #e0e0e0;
+    border-radius: 20px;
+    padding: 8px 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.spellcheck-loading-tooltip .spellcheck-loading {
+    margin-left: 0;
+    border-top-color: #da8fff;
+}
+
 .spellcheck-undo-tooltip {
     z-index: 10002;
     background: transparent;

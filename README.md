@@ -14,7 +14,7 @@ For non-native English speakers who write roleplay dialogue with intentional "in
 - **Ambiguous word detection** - shows all options when multiple corrections are equally likely
 - **Fix All with AI** - sends entire text to AI for comprehensive spell/grammar check
 - **Undo button** - appears after changes, lets you restore original text (10s timeout)
-- **Double-tap shortcut** - skip local check, send directly to AI
+- **Double-tap shortcut** - skip local check, send directly to AI (spinner shows while it runs)
 - **Custom dictionary** - add character names, fantasy terms, slang
 - **Never touches punctuation** - your asterisks, quotes, and commas stay exactly as you wrote them
 
@@ -61,11 +61,13 @@ For non-native English speakers who write roleplay dialogue with intentional "in
 | **Ctrl+Space** | Run spell check (configurable) |
 | **Ctrl+Space** (panel open) | Trigger Fix All |
 | **Ctrl+Space** (double-tap) | Send directly to AI, skip local check |
-| **Esc** | Close panel, or dismiss undo button |
+| **Esc** | Close panel, cancel an in-flight AI call, or dismiss undo button |
 
 ### Undo
 
 After any changes (auto-fix or AI fix), an **Undo** button appears briefly. Click it to restore your original text. The button auto-dismisses after 10 seconds, or press Esc to hide it.
+
+A double-tap sends straight to the AI with no panel, so a spinner appears in that same spot while the request is in flight, and is replaced by the Undo button when it returns. Press Esc to cancel.
 
 ## Settings
 

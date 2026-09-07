@@ -227,20 +227,38 @@ function closeTooltip() {
     $(".spellcheck-tooltip").remove();
 }
 
-function showUndoTooltip(originalText) {
-    $(".spellcheck-undo-tooltip").remove();
-
-    const $textarea = $("#send_textarea");
-    const rect = $textarea[0].getBoundingClientRect();
-
-    const $undo = $('<div class="spellcheck-undo-tooltip"><span class="undo-text">Undo</span></div>');
-    $("body").append($undo);
-
-    $undo.css({
+// Places a floating element just above the textarea. Used by both the undo
+// button and the AI loading indicator so they occupy the same spot.
+function positionAboveTextarea($el) {
+    const rect = $("#send_textarea")[0].getBoundingClientRect();
+    $el.css({
         position: "fixed",
         top: (rect.top - 50) + "px",
         right: "100px",
     });
+}
+
+function showLoadingTooltip() {
+    hideLoadingTooltip();
+    $(".spellcheck-undo-tooltip").remove();
+
+    const $loading = $('<div class="spellcheck-loading-tooltip"><span class="spellcheck-loading"></span></div>');
+    $("body").append($loading);
+    positionAboveTextarea($loading);
+}
+
+function hideLoadingTooltip() {
+    $(".spellcheck-loading-tooltip").remove();
+}
+
+function showUndoTooltip(originalText) {
+    $(".spellcheck-undo-tooltip").remove();
+
+    const $textarea = $("#send_textarea");
+
+    const $undo = $('<div class="spellcheck-undo-tooltip"><span class="undo-text">Undo</span></div>');
+    $("body").append($undo);
+    positionAboveTextarea($undo);
 
     $undo.on("click", () => {
         $textarea.val(originalText);
@@ -467,15 +485,20 @@ async function fixAll(skipPanelCheck = false) {
 
     const panelVisible = $("#spellcheck_results_panel").is(":visible");
 
-    // Show spinner in panel header if panel is open
+    // Show spinner in panel header if panel is open, otherwise float one above
+    // the textarea (double-tap runs with no panel to put it in)
     if (panelVisible) {
         const $count = $("#spellcheck_results_count");
         $count.html('Fixing... <span class="spellcheck-loading"></span>');
         $("#spellcheck_fix_all").css("pointer-events", "none").css("opacity", "0.5");
+    } else {
+        showLoadingTooltip();
     }
 
-    // Create abort controller
-    fixAllAbortController = new AbortController();
+    // Create abort controller. Kept in a local too so a request that finishes
+    // after a newer one started doesn't tear down the newer one's state.
+    const controller = new AbortController();
+    fixAllAbortController = controller;
 
     const defaultPrompt = "You are a spell checker. Fix all spelling and grammar errors in the following text. Return ONLY the corrected text, nothing else. Preserve the original formatting, line breaks, and punctuation style.";
     const systemPrompt = s.customPrompt?.trim() || defaultPrompt;
@@ -495,7 +518,7 @@ async function fixAll(skipPanelCheck = false) {
                 ],
                 max_tokens: 4096,
             }),
-            signal: fixAllAbortController.signal,
+            signal: controller.signal,
         });
 
         // Check if panel was closed while waiting (only for panel-triggered calls)
@@ -546,7 +569,10 @@ async function fixAll(skipPanelCheck = false) {
             $("#spellcheck_results_count").text("");
         }
     } finally {
-        fixAllAbortController = null;
+        if (fixAllAbortController === controller) {
+            fixAllAbortController = null;
+            hideLoadingTooltip();
+        }
         $("#spellcheck_fix_all").css("pointer-events", "").css("opacity", "");
     }
 }
@@ -685,6 +711,11 @@ jQuery(async () => {
             if ($("#spellcheck_results_panel").is(":visible")) {
                 clearResults();
                 hideResultsPanel();
+            } else if ($(".spellcheck-loading-tooltip").length) {
+                // Cancel an in-flight double-tap AI call
+                if (fixAllAbortController) {
+                    fixAllAbortController.abort();
+                }
             } else if ($(".spellcheck-undo-tooltip").length) {
                 $(".spellcheck-undo-tooltip").remove();
             }
