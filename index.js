@@ -543,6 +543,19 @@ async function fixAll(skipPanelCheck = false) {
             return;
         }
 
+        // The AI returns trimmed text, so compare trimmed to avoid counting the
+        // user's own leading/trailing whitespace as a change
+        if (correctedText === text.trim()) {
+            clearResults();
+            if (panelVisible) {
+                hideResultsPanel();
+            }
+            originalTextBeforeSpellCheck = null;
+            toastr.success("No spelling errors found");
+            $("#spellcheck_status").text("No issues found");
+            return;
+        }
+
         // Replace text and show undo
         $textarea.val(correctedText);
         clearResults();

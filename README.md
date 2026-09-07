@@ -12,7 +12,7 @@ For non-native English speakers who write roleplay dialogue with intentional "in
 - **Local dictionary** with 61k words (SCOWL size 50) - instant, free, works offline
 - **AI fallback** via OpenRouter for hard cases (garbled words the dictionary can't match)
 - **Ambiguous word detection** - shows all options when multiple corrections are equally likely
-- **Fix All with AI** - sends entire text to AI for comprehensive spell/grammar check
+- **Fix All with AI** - sends entire text to AI for comprehensive spell/grammar check; leaves your text untouched if the AI returns it unchanged
 - **Undo button** - appears after changes, lets you restore original text (10s timeout)
 - **Double-tap shortcut** - skip local check, send directly to AI (spinner shows while it runs)
 - **Custom dictionary** - add character names, fantasy terms, slang
@@ -68,6 +68,8 @@ For non-native English speakers who write roleplay dialogue with intentional "in
 After any changes (auto-fix or AI fix), an **Undo** button appears briefly. Click it to restore your original text. The button auto-dismisses after 10 seconds, or press Esc to hide it.
 
 A double-tap sends straight to the AI with no panel, so a spinner appears in that same spot while the request is in flight, and is replaced by the Undo button when it returns. Press Esc to cancel.
+
+If the AI returns text identical to what you wrote, nothing is replaced and you get the same "No spelling errors found" toast the local checker shows, instead of an Undo button.
 
 ## Settings
 
