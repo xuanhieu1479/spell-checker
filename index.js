@@ -26,6 +26,27 @@ let originalTextBeforeSpellCheck = null;
 let shortcutDebounceTimer = null;
 const DOUBLE_TAP_THRESHOLD = 400; // ms
 
+// The input/textarea the current check runs on (whichever had focus when the shortcut was pressed)
+let targetInput = null;
+let isProgrammaticEdit = false;
+const EDITABLE_SELECTOR = 'textarea, input:not([type]), input[type="text"], input[type="search"]';
+
+function $target() {
+    return $(targetInput || "#send_textarea");
+}
+
+// Fire a native input event so ST's own listeners save the change (e.g. character fields)
+function setInputText(el, text) {
+    if (!el) return;
+    el.value = text;
+    isProgrammaticEdit = true;
+    try {
+        el.dispatchEvent(new Event("input", { bubbles: true }));
+    } finally {
+        isProgrammaticEdit = false;
+    }
+}
+
 function trimProviderPrefix(name, provider) {
     const prefixes = [
         `${provider}:`,
@@ -122,8 +143,8 @@ function escapeHtml(str) {
 }
 
 function highlightWordInTextarea(start, end) {
-    const $textarea = $("#send_textarea");
-    const textarea = $textarea[0];
+    const textarea = $target()[0];
+    if (!textarea) return;
     textarea.focus();
     textarea.setSelectionRange(start, end);
 }
@@ -174,8 +195,7 @@ function showTooltipForResult(r, x, y) {
         const $aiBtn = $('<div class="spellcheck-tooltip-action">Ask AI for suggestion...</div>');
         $aiBtn.on("click", async () => {
             $aiBtn.html('Checking... <span class="spellcheck-loading"></span>');
-            const $textarea = $("#send_textarea");
-            const text = $textarea.val();
+            const text = $target().val();
             const s = settings();
             const result = await checkWordWithAI(text, word, {
                 apiEndpoint: s.apiEndpoint,
@@ -254,14 +274,15 @@ function hideLoadingTooltip() {
 function showUndoTooltip(originalText) {
     $(".spellcheck-undo-tooltip").remove();
 
-    const $textarea = $("#send_textarea");
+    // Undo button stays anchored above the chat input, but restores whichever input was checked
+    const undoTarget = $target()[0];
 
     const $undo = $('<div class="spellcheck-undo-tooltip"><span class="undo-text">Undo</span></div>');
     $("body").append($undo);
     positionAboveTextarea($undo);
 
     $undo.on("click", () => {
-        $textarea.val(originalText);
+        setInputText(undoTarget, originalText);
         $undo.remove();
     });
 
@@ -272,12 +293,12 @@ function showUndoTooltip(originalText) {
 }
 
 function applyCorrection(start, end, suggestion) {
-    const $textarea = $("#send_textarea");
+    const $textarea = $target();
     const text = $textarea.val();
     const originalWord = text.slice(start, end);
     const corrected = applySingleCorrection(originalWord, suggestion);
     const newText = text.slice(0, start) + corrected + text.slice(end);
-    $textarea.val(newText);
+    setInputText($textarea[0], newText);
 
     const offset = corrected.length - (end - start);
     currentResults = currentResults
@@ -375,10 +396,11 @@ function hideResultsPanel() {
         fixAllAbortController = null;
     }
     $("#spellcheck_results_panel").hide();
+    $target().off(".spellcheck");
 
     // Show undo if text was changed during spell check session
     if (originalTextBeforeSpellCheck !== null) {
-        const currentText = $("#send_textarea").val();
+        const currentText = $target().val();
         if (currentText !== originalTextBeforeSpellCheck) {
             showUndoTooltip(originalTextBeforeSpellCheck);
         }
@@ -396,8 +418,8 @@ async function runSpellCheck() {
     // Remove any existing undo tooltip
     $(".spellcheck-undo-tooltip").remove();
 
-    const $textarea = $("#send_textarea");
-    const text = $textarea.val();
+    const $textarea = $target();
+    const text = $textarea.val() || "";
 
     if (!text.trim()) {
         clearResults();
@@ -429,7 +451,7 @@ async function runSpellCheck() {
                 const corrected = applySingleCorrection(original, r.suggestions[0]);
                 newText = newText.slice(0, r.start) + corrected + newText.slice(r.end);
             }
-            $textarea.val(newText);
+            setInputText($textarea[0], newText);
         }
 
         // Always re-run check after auto-fixes to get correct positions
@@ -439,6 +461,7 @@ async function runSpellCheck() {
 
         if (remainingCount > 0) {
             $textarea.on("input.spellcheck", () => {
+                if (isProgrammaticEdit) return;
                 clearResults();
                 hideResultsPanel();
                 $textarea.off(".spellcheck");
@@ -470,8 +493,8 @@ async function runSpellCheck() {
 }
 
 async function fixAll(skipPanelCheck = false) {
-    const $textarea = $("#send_textarea");
-    const text = $textarea.val();
+    const $textarea = $target();
+    const text = $textarea.val() || "";
 
     if (!text.trim()) {
         return;
@@ -557,7 +580,7 @@ async function fixAll(skipPanelCheck = false) {
         }
 
         // Replace text and show undo
-        $textarea.val(correctedText);
+        setInputText($textarea[0], correctedText);
         clearResults();
 
         if (panelVisible) {
@@ -591,6 +614,7 @@ async function fixAll(skipPanelCheck = false) {
 }
 
 function handleKeydown(e) {
+    if (!e.key) return; // autofill can fire keydown without a key
     const panelOpen = $("#spellcheck_results_panel").is(":visible");
     const s = settings();
     const modifier = s.modifier || "ctrl";
@@ -611,14 +635,19 @@ function handleKeydown(e) {
         e.stopPropagation();
 
         if (panelOpen) {
-            // Panel open: shortcut = Fix All
+            // Panel open: shortcut = Fix All on the input the panel belongs to
             fixAll();
-        } else if (shortcutDebounceTimer) {
+            return;
+        }
+
+        targetInput = e.currentTarget;
+
+        if (shortcutDebounceTimer) {
             // Second tap within threshold: double-tap detected
             clearTimeout(shortcutDebounceTimer);
             shortcutDebounceTimer = null;
             $(".spellcheck-undo-tooltip").remove();
-            originalTextBeforeSpellCheck = $("#send_textarea").val();
+            originalTextBeforeSpellCheck = $target().val();
             fixAll(true); // skip panel check
         } else {
             // First tap: wait to see if double-tap
@@ -716,7 +745,8 @@ jQuery(async () => {
         hideResultsPanel();
     });
 
-    $("#send_textarea").on("keydown", handleKeydown);
+    // Works in any focused text input/textarea, not just the chat box
+    $(document).on("keydown", EDITABLE_SELECTOR, handleKeydown);
 
     // Esc to close panel from anywhere
     $(document).on("keydown", (e) => {

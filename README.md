@@ -8,6 +8,7 @@ For non-native English speakers who write roleplay dialogue with intentional "in
 
 ## Features
 
+- **Works in any text box** - chat input, character card fields, lorebook entries; the panel and Undo button always appear above the chat input
 - **Ctrl+Space to check** - No background scanning, no timers, no overhead when idle
 - **Local dictionary** with 61k words (SCOWL size 50) - instant, free, works offline
 - **AI fallback** via OpenRouter for hard cases (garbled words the dictionary can't match)
@@ -48,8 +49,8 @@ For non-native English speakers who write roleplay dialogue with intentional "in
 
 ## Usage
 
-1. Type in the chat input box (`#send_textarea`)
-2. Press **Ctrl+Space** to run spell check
+1. Type in any text box - the chat input, character fields, lorebook entries, etc.
+2. Press **Ctrl+Space** to run spell check on the focused box
 3. Click highlighted words to see suggestions
 4. Click "Fix All" to send entire text to AI for correction
 5. Ambiguous words (yellow highlight) must be fixed manually
@@ -65,7 +66,7 @@ For non-native English speakers who write roleplay dialogue with intentional "in
 
 ### Undo
 
-After any changes (auto-fix or AI fix), an **Undo** button appears briefly. Click it to restore your original text. The button auto-dismisses after 10 seconds, or press Esc to hide it.
+After any changes (auto-fix or AI fix), an **Undo** button appears briefly. Click it to restore your original text in the box that was checked. The button auto-dismisses after 10 seconds, or press Esc to hide it.
 
 A double-tap sends straight to the AI with no panel, so a spinner appears in that same spot while the request is in flight, and is replaced by the Undo button when it returns. Press Esc to cancel.
 
