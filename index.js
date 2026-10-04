@@ -640,7 +640,7 @@ function handleKeydown(e) {
             return;
         }
 
-        targetInput = e.currentTarget;
+        targetInput = e.target;
 
         if (shortcutDebounceTimer) {
             // Second tap within threshold: double-tap detected
@@ -745,8 +745,14 @@ jQuery(async () => {
         hideResultsPanel();
     });
 
-    // Works in any focused text input/textarea, not just the chat box
-    $(document).on("keydown", EDITABLE_SELECTOR, handleKeydown);
+    // Works in any focused text input/textarea, not just the chat box.
+    // Capture phase: ST's slash-command autocomplete handles Ctrl+Space on its textareas
+    // and stops propagation, so a bubbling document listener would never see it.
+    document.addEventListener("keydown", (e) => {
+        if (e.target instanceof Element && e.target.matches(EDITABLE_SELECTOR)) {
+            handleKeydown(e);
+        }
+    }, true);
 
     // Esc to close panel from anywhere
     $(document).on("keydown", (e) => {
