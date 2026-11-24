@@ -3,17 +3,20 @@ import { saveSettingsDebounced } from "../../../../script.js";
 import { initDictionary, checkText } from "./spellcheck.js";
 import { checkWordWithAI } from "./ai-fallback.js";
 import { applySingleCorrection } from "./postprocess.js";
+import { PROVIDERS, DEFAULT_PROVIDER, getProvider, getActiveConfig, chatCompletion, fetchProviderModels } from "./providers.js";
 
 const extensionName = "spell-checker";
 const extensionFolderPath = `scripts/extensions/third-party/${extensionName}`;
 
-const OPENROUTER_API = "https://openrouter.ai/api/v1";
-
 const defaultSettings = {
     modifier: "ctrl",
     key: " ",
-    apiKey: "",
-    modelName: "google/gemini-2.0-flash-lite-001",
+    provider: DEFAULT_PROVIDER,
+    // Each provider keeps its own key and model (setting names come from providers.js)
+    ...Object.fromEntries(Object.values(PROVIDERS).flatMap(p => [
+        [p.keySetting, ""],
+        [p.modelSetting, p.defaultModel],
+    ])),
     customPrompt: "",
     customDictionary: [],
 };
@@ -61,15 +64,12 @@ function trimProviderPrefix(name, provider) {
     return name;
 }
 
-async function fetchModels() {
-    const response = await fetch(`${OPENROUTER_API}/models`);
-    if (!response.ok) throw new Error(`Failed to fetch models: ${response.status}`);
-
-    const data = await response.json();
-    const models = data.data || [];
+async function fetchModels(providerId) {
+    const models = await fetchProviderModels(providerId);
 
     allModels = models.map(m => {
-        const provider = m.id.split("/")[0];
+        // Grouped by model maker; ids without a "/" (some NanoGPT ones) go under "other"
+        const provider = m.id.includes("/") ? m.id.split("/")[0] : "other";
         const rawName = m.name || m.id;
         return {
             id: m.id,
@@ -101,10 +101,11 @@ function populateModelDropdown(models, selectedModel) {
 
     const providers = Object.keys(grouped).sort();
     for (const provider of providers) {
-        const $optgroup = $(`<optgroup label="${provider}"></optgroup>`);
+        // Names and ids come from the provider's model list, so escape them
+        const $optgroup = $(`<optgroup label="${escapeHtml(provider)}"></optgroup>`);
         for (const model of grouped[provider]) {
             const selected = model.id === selectedModel ? "selected" : "";
-            $optgroup.append(`<option value="${model.id}" ${selected}>${model.name}</option>`);
+            $optgroup.append(`<option value="${escapeHtml(model.id)}" ${selected}>${escapeHtml(model.name)}</option>`);
         }
         $select.append($optgroup);
     }
@@ -197,12 +198,7 @@ function showTooltipForResult(r, x, y) {
             $aiBtn.html('Checking... <span class="spellcheck-loading"></span>');
             const text = $target().val();
             const s = settings();
-            const result = await checkWordWithAI(text, word, {
-                apiEndpoint: s.apiEndpoint,
-                apiKey: s.apiKey,
-                modelName: s.modelName,
-                customPrompt: s.customPrompt,
-            });
+            const result = await checkWordWithAI(text, word, s);
             if (result.success && result.suggestion) {
                 applyCorrection(start, end, result.suggestion);
                 closeTooltip();
@@ -501,8 +497,9 @@ async function fixAll(skipPanelCheck = false) {
     }
 
     const s = settings();
-    if (!s.apiKey) {
-        toastr.error("Please configure an OpenRouter API key in the Spell Checker settings.");
+    const { provider, apiKey } = getActiveConfig(s);
+    if (!apiKey) {
+        toastr.error(`Please configure a ${provider.label} API key in the Spell Checker settings.`);
         return;
     }
 
@@ -527,41 +524,21 @@ async function fixAll(skipPanelCheck = false) {
     const systemPrompt = s.customPrompt?.trim() || defaultPrompt;
 
     try {
-        const response = await fetch(`${OPENROUTER_API}/chat/completions`, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${s.apiKey}`,
-            },
-            body: JSON.stringify({
-                model: s.modelName || "google/gemini-2.0-flash-lite-001",
-                messages: [
-                    { role: "system", content: systemPrompt },
-                    { role: "user", content: text },
-                ],
-                max_tokens: 4096,
-            }),
+        const correctedText = await chatCompletion({
+            settings: s,
+            messages: [
+                { role: "system", content: systemPrompt },
+                { role: "user", content: text },
+            ],
+            maxTokens: 4096,
             signal: controller.signal,
         });
-
-        // Check if panel was closed while waiting (only for panel-triggered calls)
-        if (!skipPanelCheck && !$("#spellcheck_results_panel").is(":visible")) {
-            return;
-        }
-
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error?.message || `API error: ${response.status}`);
-        }
-
-        const data = await response.json();
-        const correctedText = data.choices?.[0]?.message?.content?.trim();
 
         if (!correctedText) {
             throw new Error("No response from AI");
         }
 
-        // Check again if panel was closed (only for panel-triggered calls)
+        // Check if panel was closed while waiting (only for panel-triggered calls)
         if (!skipPanelCheck && !$("#spellcheck_results_panel").is(":visible")) {
             return;
         }
@@ -597,6 +574,10 @@ async function fixAll(skipPanelCheck = false) {
     } catch (error) {
         if (error.name === "AbortError") {
             // Request was cancelled
+            return;
+        }
+        // Panel closed while waiting: the user moved on, so don't pop an error at them
+        if (!skipPanelCheck && !$("#spellcheck_results_panel").is(":visible")) {
             return;
         }
         console.error("[Spell Checker] Fix All error:", error);
@@ -667,32 +648,69 @@ jQuery(async () => {
     const s = settings();
     $("#spellcheck_modifier").val(s.modifier);
     $("#spellcheck_key").val(s.key);
-    $("#spellcheck_api_key").val(s.apiKey);
     $("#spellcheck_custom_prompt").val(s.customPrompt);
     $("#spellcheck_custom_dict").val(
         Array.isArray(s.customDictionary) ? s.customDictionary.join("\n") : s.customDictionary
     );
 
+    // Key and model fields read/write whichever provider is selected
+    const activeProvider = () => getProvider(settings().provider);
+    const activeModel = () => settings()[activeProvider().modelSetting];
+
+    // Bumped on every load so a slow response for a provider the user already
+    // switched away from doesn't overwrite the list for the current one
+    let modelLoadId = 0;
+
     async function loadModels() {
+        const loadId = ++modelLoadId;
+        const providerId = settings().provider;
         const $btn = $("#spellcheck_refresh_models");
         const $select = $("#spellcheck_model_name");
         const $search = $("#spellcheck_model_search");
         $btn.prop("disabled", true).find("i").addClass("fa-spin");
+        $select.html('<option value="">Loading models...</option>');
 
         try {
-            await fetchModels();
-            populateModelDropdown(allModels, settings().modelName);
-            const selected = allModels.find(m => m.id === settings().modelName);
-            if (selected) $search.val(selected.name);
+            await fetchModels(providerId);
+            if (loadId !== modelLoadId) return;
+            populateModelDropdown(allModels, activeModel());
+            const selected = allModels.find(m => m.id === activeModel());
+            $search.val(selected ? selected.name : "");
         } catch (error) {
+            if (loadId !== modelLoadId) return;
             console.error("[Spell Checker] Failed to fetch models:", error);
             $select.html('<option value="">Failed to load models</option>');
         } finally {
-            $btn.prop("disabled", false).find("i").removeClass("fa-spin");
+            if (loadId === modelLoadId) {
+                $btn.prop("disabled", false).find("i").removeClass("fa-spin");
+            }
         }
     }
 
+    function showProviderFields() {
+        const provider = activeProvider();
+        $("#spellcheck_provider").val(settings().provider);
+        $("#spellcheck_api_key")
+            .val(settings()[provider.keySetting])
+            .attr("placeholder", provider.keyPlaceholder);
+        $("#spellcheck_api_key_link")
+            .attr("href", provider.keyUrl)
+            .text(provider.keyUrl.replace(/^https:\/\//, ""));
+    }
+
+    // An unknown saved provider falls back to the default
+    if (!PROVIDERS[s.provider]) s.provider = DEFAULT_PROVIDER;
+    showProviderFields();
     loadModels();
+
+    $("#spellcheck_provider").on("change", () => {
+        settings().provider = $("#spellcheck_provider").val();
+        saveSettingsDebounced();
+        showProviderFields();
+        allModels = [];
+        $("#spellcheck_model_search").val("");
+        loadModels();
+    });
 
     $("#spellcheck_modifier").on("change", () => {
         settings().modifier = $("#spellcheck_modifier").val();
@@ -705,19 +723,20 @@ jQuery(async () => {
     });
 
     $("#spellcheck_api_key").on("input", () => {
-        settings().apiKey = $("#spellcheck_api_key").val();
+        settings()[activeProvider().keySetting] = $("#spellcheck_api_key").val();
         saveSettingsDebounced();
     });
 
     $("#spellcheck_model_search").on("input", function() {
         const query = $(this).val();
         const filtered = filterModels(query);
-        populateModelDropdown(filtered, settings().modelName);
+        populateModelDropdown(filtered, activeModel());
     });
 
     $("#spellcheck_model_name").on("change", function() {
         const modelId = $(this).val();
-        settings().modelName = modelId;
+        if (!modelId) return; // placeholder rows ("Loading...", "No models match")
+        settings()[activeProvider().modelSetting] = modelId;
         saveSettingsDebounced();
         const model = allModels.find(m => m.id === modelId);
         if (model) $("#spellcheck_model_search").val(model.name);

@@ -91,13 +91,22 @@
 
             <div class="spellcheck-block">
                 <b>AI Fallback Settings</b>
-                <small>Used when local dictionary cannot find a match (edit distance > 2). Uses OpenRouter API.</small>
+                <small>Used when local dictionary cannot find a match (edit distance > 2), and for Fix All.</small>
+            </div>
+
+            <div class="spellcheck-block">
+                <label for="spellcheck_provider">Provider:</label>
+                <select id="spellcheck_provider" class="text_pole">
+                    <option value="openrouter">OpenRouter</option>
+                    <option value="nanogpt">NanoGPT</option>
+                </select>
+                <small>Each provider keeps its own API key and model.</small>
             </div>
 
             <div class="spellcheck-block">
                 <label for="spellcheck_api_key">API Key:</label>
                 <input id="spellcheck_api_key" type="password" class="text_pole" placeholder="sk-or-..." />
-                <small>Get your key at <a href="https://openrouter.ai/keys" target="_blank">openrouter.ai/keys</a></small>
+                <small>Get your key at <a id="spellcheck_api_key_link" href="https://openrouter.ai/keys" target="_blank">openrouter.ai/keys</a></small>
             </div>
 
             <div class="spellcheck-block">

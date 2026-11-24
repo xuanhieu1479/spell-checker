@@ -1,50 +1,29 @@
-const OPENROUTER_API = "https://openrouter.ai/api/v1";
+import { PROVIDERS, chatCompletion, getActiveConfig } from "./providers.js";
 
 const DEFAULT_SYSTEM_PROMPT = `You are a spell checker. A word is misspelled in the text fragment provided. Reply with ONLY the corrected word, nothing else. No punctuation, no explanation.`;
 
+// settings: the extension settings object (provider, keys, models, customPrompt)
 export async function callAI(text, misspelledWord, settings) {
-    const { apiKey, modelName, customPrompt } = settings;
-
-    if (!apiKey) {
-        throw new Error("API key must be configured");
-    }
+    const { provider, modelName } = getActiveConfig(settings);
 
     const contextWords = extractContext(text, misspelledWord, 3);
-    const systemPrompt = customPrompt || DEFAULT_SYSTEM_PROMPT;
+    const systemPrompt = settings.customPrompt || DEFAULT_SYSTEM_PROMPT;
     const userMessage = `Fragment: "${contextWords}"\nMisspelled word: "${misspelledWord}"`;
 
-    const isAnthropic = modelName.startsWith("anthropic/");
+    // OpenRouter passes cache_control through to Anthropic; other providers get plain text
+    const useCacheControl = provider === PROVIDERS.openrouter && modelName.startsWith("anthropic/");
 
     const messages = [
         {
             role: "system",
-            content: isAnthropic
+            content: useCacheControl
                 ? [{ type: "text", text: systemPrompt, cache_control: { type: "ephemeral" } }]
                 : systemPrompt,
         },
         { role: "user", content: userMessage },
     ];
 
-    const response = await fetch(`${OPENROUTER_API}/chat/completions`, {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-            model: modelName,
-            max_tokens: 50,
-            messages,
-        }),
-    });
-
-    if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`API error ${response.status}: ${errorText}`);
-    }
-
-    const data = await response.json();
-    return data.choices?.[0]?.message?.content?.trim() || "";
+    return chatCompletion({ settings, messages, maxTokens: 50 });
 }
 
 function extractContext(text, misspelledWord, windowSize) {

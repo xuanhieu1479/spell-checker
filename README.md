@@ -11,7 +11,7 @@ For non-native English speakers who write roleplay dialogue with intentional "in
 - **Works in any text box** - chat input, character card fields, lorebook entries; the panel and Undo button always appear above the chat input
 - **Ctrl+Space to check** - No background scanning, no timers, no overhead when idle
 - **Local dictionary** with 61k words (SCOWL size 50) - instant, free, works offline
-- **AI fallback** via OpenRouter for hard cases (garbled words the dictionary can't match)
+- **AI fallback** via OpenRouter or NanoGPT for hard cases (garbled words the dictionary can't match)
 - **Ambiguous word detection** - shows all options when multiple corrections are equally likely
 - **Fix All with AI** - sends entire text to AI for comprehensive spell/grammar check; leaves your text untouched if the AI returns it unchanged
 - **Undo button** - appears after changes, lets you restore original text (10s timeout)
@@ -29,7 +29,7 @@ For non-native English speakers who write roleplay dialogue with intentional "in
 
 ### Layer 2: AI Fallback (For Hard Cases)
 - Words with no close dictionary match (edit distance > 2) can be sent to AI
-- Uses OpenRouter API - supports 100+ models
+- Uses OpenRouter or NanoGPT - pick the provider in settings, each supports hundreds of models
 - Only sends the misspelled word + surrounding context, not the full message
 - Default model: Gemini Flash Lite
 
@@ -77,7 +77,8 @@ If the AI returns text identical to what you wrote, nothing is replaced and you 
 | Setting | Description |
 |---------|-------------|
 | **Keyboard Shortcut** | Change modifier (Ctrl/Alt/Shift) and key |
-| **API Key** | Your OpenRouter API key ([get one here](https://openrouter.ai/keys)) |
+| **Provider** | OpenRouter or NanoGPT; each keeps its own API key and model, so switching back and forth loses neither |
+| **API Key** | Key for the selected provider ([OpenRouter](https://openrouter.ai/keys), [NanoGPT](https://nano-gpt.com/api)) |
 | **Model** | Searchable dropdown - type to filter, click Refresh to reload |
 | **Custom Prompt** | Override the default AI prompt |
 | **Custom Dictionary** | Words to never flag (one per line) |
@@ -103,7 +104,7 @@ If the AI returns text identical to what you wrote, nothing is replaced and you 
 ## Credits
 
 - Dictionary from [SCOWL](http://wordlist.aspell.net/) size 50 (61,502 words, US English)
-- AI fallback via [OpenRouter](https://openrouter.ai)
+- AI fallback via [OpenRouter](https://openrouter.ai) or [NanoGPT](https://nano-gpt.com)
 
 ## License
 
