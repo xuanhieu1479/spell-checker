@@ -527,7 +527,7 @@ async function fixAll(skipPanelCheck = false) {
     const systemPrompt = s.customPrompt?.trim() || defaultPrompt;
 
     try {
-        const response = await fetch(`${OPENROUTER_API}/chat/completions`, {
+        const response = await fetch(`${OPENROUTER_API}/responses`, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
